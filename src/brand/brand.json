@@ -1,0 +1,54 @@
+{
+  "$schema": "./brand.schema.json",
+  "status": "ready",
+  "name": "limitry",
+  "productName": "Limitry",
+  "legalName": "Omsome L.L.C-FZ",
+  "releaseMirrors": true,
+  "domain": "limitry.com",
+  "summary": "Limitry is the limits, credits and budgets layer for your software: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly action one call tells your code whether it may happen.",
+  "expectedAssets": [
+    "logo.svg",
+    "logo-dark.svg",
+    "mark.svg",
+    "favicon.svg",
+    "favicon-internal.svg",
+    "og-default.png",
+    "apple-touch-icon.png"
+  ],
+  "colors": {
+    "brand": "#15202B",
+    "brandForeground": "#F5F6F3",
+    "brandDark": "#E8A33D",
+    "brandDarkForeground": "#15202B",
+    "ink": "#15202B",
+    "signal": "#E8A33D",
+    "paper": "#F5F6F3",
+    "graduation": "#C9CEC6",
+    "held": "#7C93AB",
+    "refused": "#B5412E"
+  },
+  "fonts": {
+    "display": "Archivo Variable",
+    "body": "IBM Plex Sans"
+  },
+  "environments": [
+    {
+      "name": "test",
+      "keyPrefix": "lim_test_",
+      "readOnlyWorkspace": true,
+      "description": "Use test to build and try things: test keys only touch test data, and test checks aren't billed."
+    },
+    {
+      "name": "live",
+      "keyPrefix": "lim_live_",
+      "description": "Use live in production: live checks count toward your plan."
+    }
+  ],
+  "environmentsDocs": "/docs/test-and-live/",
+  "defaultEnvironment": "test",
+  "signIn": {
+    "providerOrder": ["github", "google"],
+    "emailSignUp": "button"
+  }
+}
