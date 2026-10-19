@@ -3,7 +3,6 @@ import type { Schemas } from "@limitry/sdk";
 
 import type { Command } from "../cli.ts";
 import { json } from "../output.ts";
-import { clientFor } from "./limits-sync.ts";
 
 /**
  * `limitry check <kind>:<id> <action> [--cost N] [--shared kind:id …]` —
@@ -47,17 +46,19 @@ export const checkCommand: Command = (program, ctx) => {
         if (cost !== undefined && !Number.isInteger(cost)) {
           throw new Error("--cost must be a whole number");
         }
-        const decision = await clientFor(ctx, options.workspace).checks.create(
-          {
-            subject: parseSubject(subject),
-            action,
-            ...(cost !== undefined ? { cost } : {}),
-            ...(options.shared?.length
-              ? { shared: options.shared.map(parseSubject) }
-              : {}),
-          },
-          { idempotencyKey: crypto.randomUUID() },
-        );
+        const decision = await ctx
+          .client({ workspace: options.workspace })
+          .checks.create(
+            {
+              subject: parseSubject(subject),
+              action,
+              ...(cost !== undefined ? { cost } : {}),
+              ...(options.shared?.length
+                ? { shared: options.shared.map(parseSubject) }
+                : {}),
+            },
+            { idempotencyKey: crypto.randomUUID() },
+          );
         ctx.io.stdout(options.json ? json(decision) : answer(decision));
       },
     );
@@ -87,17 +88,6 @@ export function answer(decision: Decision): string {
       ? "Allowed. No limit applies."
       : `Allowed. ${decision.remaining.map(left).join("; ")}`;
   }
-  const retry =
-    decision.retryAfterSeconds !== null
-      ? ` Try again in ${decision.retryAfterSeconds} s.`
-      : "";
-  if (decision.reason?.code === "too_many_reservations") {
-    return `Refused: too many open reservations for this subject.${retry}`;
-  }
-  const limit = decision.remaining.find(
-    (r) => r.limit === decision.reason?.limit,
-  );
-  return limit
-    ? `Refused by ${left(limit)}.${retry}`
-    : `Refused: a limit is used up.${retry}`;
+  // The API's own sentence: the SDKs and the MCP server show the same.
+  return decision.reason?.message ?? "Refused.";
 }

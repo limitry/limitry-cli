@@ -54,7 +54,13 @@ const allowed = {
 const refused = {
   id: "chk_2",
   allowed: false,
-  reason: { code: "limit_exceeded", limit: "lim_a" },
+  reason: {
+    code: "limit_exceeded",
+    limit: "lim_a",
+    // The API writes the sentence; the CLI prints it as it is.
+    message:
+      "Refused by AI budget: 0 cents left, resets 2026-11-01T00:00:00.000Z. Try again in 3600 s.",
+  },
   remaining: [{ ...budget, remaining: 0 }],
   retryAfterSeconds: 3600,
 };
@@ -113,6 +119,22 @@ describe("check", () => {
     expect(t.out).toEqual([
       "Allowed. AI budget: 195 cents left, resets 2026-11-01T00:00:00.000Z",
     ]);
+  });
+
+  it("refuses --workspace with an API key, as every command does", async () => {
+    // An API key is its own workspace: naming another is a mistake to
+    // say, not a flag to drop silently.
+    for (const args of [
+      ["check", "user:usr_123", "ai-call", "--workspace", "acme"],
+      ["sync", "--limits", "[]", "--workspace", "acme"],
+    ]) {
+      const t = terminal({});
+      expect(await run(args, t.io)).toBe(1);
+      expect(t.calls).toEqual([]);
+      expect(t.err.join("\n")).toContain(
+        "an API key acts only in its own workspace",
+      );
+    }
   });
 
   it("says why it was refused, and exits 0: a refusal is an answer", async () => {

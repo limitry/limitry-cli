@@ -46,18 +46,6 @@ export const limitsSyncCommand: Command = (program, ctx) => {
   );
 };
 
-/**
- * The client for a command: an API key is its workspace (and
- * environment), so only a person's token (`pat_…`) names the workspace
- * it acts in — so CI needs nothing but the key in LIMITRY_TOKEN.
- */
-export function clientFor(ctx: CliContext, workspace: string | undefined) {
-  const token = ctx.settings().token ?? "";
-  return ctx.client({
-    workspace: token.startsWith("pat_") ? workspace : false,
-  });
-}
-
 function syncCommand(
   command: Commander,
   ctx: CliContext,
@@ -96,14 +84,16 @@ function syncCommand(
           options.limits === undefined
             ? readLimitsFile(file)
             : parseLimits(options.limits, "--limits");
-        const result = await clientFor(ctx, options.workspace).limits.sync(
-          {
-            limits,
-            archiveMissing: options.archiveMissing ?? false,
-            dryRun: options.dryRun ?? false,
-          },
-          { idempotencyKey: crypto.randomUUID() },
-        );
+        const result = await ctx
+          .client({ workspace: options.workspace })
+          .limits.sync(
+            {
+              limits,
+              archiveMissing: options.archiveMissing ?? false,
+              dryRun: options.dryRun ?? false,
+            },
+            { idempotencyKey: crypto.randomUUID() },
+          );
         if (options.json) {
           ctx.io.stdout(json(result));
           return;
