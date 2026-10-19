@@ -6,7 +6,6 @@
   "legalName": "Omsome L.L.C-FZ",
   "releaseMirrors": true,
   "mirrorProfile": {
-    "tagline": "limits, credits and budgets, checked in one call before each costly request",
     "topics": [
       "rate-limiting",
       "usage-limits",

@@ -57,9 +57,12 @@ agents.
 - [Discord](https://limitry.com/discord)
 - [Report a security issue](https://limitry.com/security/)
 
-## About this package
+## Contributing
 
 This repository is generated from Limitry's source on each
 release, so pull requests are ported there and credited (see
 [CONTRIBUTING.md](https://github.com/limitry/limitry-cli/blob/main/CONTRIBUTING.md)).
+
+## License
+
 Licensed under the Apache License 2.0.
