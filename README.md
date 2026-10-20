@@ -28,15 +28,15 @@ Commands act in **test** unless you say otherwise, so trying things
 never touches the limits your customers depend on.
 
 ```bash
-# 100 AI replies a day for each user
-limitry limits create --name "AI replies per day" --subject-kind user \
-  --action ai-call --amount 100 --window day
+# 100 AI replies a day for each user ("100 replies per user per day for ai-call")
+limitry limits create --subject '{"kind":"user"}' --action ai-call \
+  --amount 100 --unit replies --window day
 
 # Check a user, as your code would
 limitry check user:usr_123 ai-call
 
 # Where a user stands, without counting anything
-limitry usage standing --kind user --id usr_123
+limitry usage standing --subject user:usr_123
 ```
 
 When a limit is right, copy it to live from the **Limits** page in the

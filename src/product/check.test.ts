@@ -36,7 +36,7 @@ function terminal(answer: unknown, status = 200) {
 }
 
 const budget = {
-  limit: "lim_a",
+  limitId: "lmt_a",
   name: "AI budget",
   unit: "cents",
   window: "month",
@@ -48,20 +48,20 @@ const allowed = {
   id: "chk_1",
   allowed: true,
   reason: null,
-  remaining: [{ ...budget, remaining: 195 }],
+  limits: [{ ...budget, remaining: 195 }],
   retryAfterSeconds: null,
 };
 const refused = {
   id: "chk_2",
   allowed: false,
   reason: {
-    code: "limit_exceeded",
-    limit: "lim_a",
+    code: "limit_reached",
+    limitId: "lmt_a",
     // The API writes the sentence; the CLI prints it as it is.
     message:
       "Refused by AI budget: 0 cents left, resets 2026-11-01T00:00:00.000Z. Try again in 3600 s.",
   },
-  remaining: [{ ...budget, remaining: 0 }],
+  limits: [{ ...budget, remaining: 0 }],
   retryAfterSeconds: 3600,
 };
 

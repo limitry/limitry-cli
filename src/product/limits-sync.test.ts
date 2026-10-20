@@ -13,7 +13,7 @@ const TOKEN = `${brand.identifier.toUpperCase()}_TOKEN`;
 
 const budget = {
   name: "AI budget",
-  subjectKind: "user",
+  subject: { kind: "user" },
   action: "ai-call",
   amount: 200,
   unit: "cents",
@@ -57,7 +57,7 @@ function file(contents: unknown) {
 }
 
 const plan = {
-  dryRun: true,
+  preview: true,
   created: ["Exports at once"],
   updated: [{ name: "AI budget", changes: { amount: { from: 100, to: 200 } } }],
   archived: ["Old limit"],
@@ -65,14 +65,14 @@ const plan = {
 };
 
 describe("limits sync", () => {
-  it("sends the file's limits with an API key, and prints the plan", async () => {
+  it("sends the file's limits with an API key, and prints what it would do", async () => {
     const t = terminal(KEY, plan);
     const code = await run(
       [
         "limits",
         "sync",
         file({ limits: [budget] }),
-        "--dry-run",
+        "--preview",
         "--archive-missing",
       ],
       t.io,
@@ -83,7 +83,7 @@ describe("limits sync", () => {
     expect(t.calls[0].body).toEqual({
       limits: [budget],
       archiveMissing: true,
-      dryRun: true,
+      preview: true,
     });
     // A key is its workspace: no X-Workspace, and none needed.
     expect(t.calls[0].headers.get("x-workspace")).toBeNull();
@@ -93,7 +93,7 @@ describe("limits sync", () => {
       "Would update: AI budget (amount 100 → 200)",
       "Would archive: Old limit",
       "Unchanged: 1",
-      "Dry run: nothing was changed.",
+      "Preview: nothing was changed.",
     ]);
     expect(t.err).toEqual(["Environment: live"]);
   });
@@ -101,7 +101,7 @@ describe("limits sync", () => {
   it("reads ./limitry.json by default and prints the API's JSON with --json", async () => {
     const applied = {
       ...plan,
-      dryRun: false,
+      preview: false,
       created: [],
       updated: [],
       archived: [],
@@ -119,7 +119,7 @@ describe("limits sync", () => {
     expect(t.calls[0].body).toEqual({
       limits: [],
       archiveMissing: false,
-      dryRun: false,
+      preview: false,
     });
     expect(JSON.parse(t.out.join("\n"))).toEqual(applied);
 
@@ -129,7 +129,7 @@ describe("limits sync", () => {
   });
 
   it("names the workspace for a person's token", async () => {
-    const t = terminal(PAT, { ...plan, dryRun: false });
+    const t = terminal(PAT, { ...plan, preview: false });
     const code = await run(
       ["limits", "sync", file({ limits: [budget] }), "--workspace", "acme"],
       t.io,
@@ -182,7 +182,7 @@ describe("limits sync", () => {
     const path = file({ limits: [budget] });
     const long = terminal(KEY, plan);
     const short = terminal(KEY, plan);
-    const flags = ["--dry-run", "--archive-missing"];
+    const flags = ["--preview", "--archive-missing"];
     expect(await run(["limits", "sync", path, ...flags], long.io)).toBe(0);
     expect(await run(["sync", path, ...flags], short.io)).toBe(0);
     expect(short.calls.map((c) => [c.path, c.body])).toEqual(
@@ -206,14 +206,14 @@ describe("limits sync", () => {
   it("takes the list as --limits instead of a file, as the API reference shows", async () => {
     const t = terminal(KEY, plan);
     const code = await run(
-      ["limits", "sync", "--limits", JSON.stringify([budget]), "--dry-run"],
+      ["limits", "sync", "--limits", JSON.stringify([budget]), "--preview"],
       t.io,
     );
     expect(code).toBe(0);
     expect(t.calls[0].body).toEqual({
       limits: [budget],
       archiveMissing: false,
-      dryRun: true,
+      preview: true,
     });
     const bad = terminal(KEY, plan);
     expect(await run(["sync", "--limits", "{}"], bad.io)).toBe(1);

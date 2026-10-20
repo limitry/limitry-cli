@@ -15,7 +15,7 @@ import { json } from "../output.ts";
  * `POST /v1/limits/sync`. Replaces the generated `limits sync`, which
  * would need the whole list as `--limits '<json>'`.
  *
- *   limitry limits sync --dry-run          # the plan; changes nothing
+ *   limitry limits sync --preview          # what it would do; changes nothing
  *   limitry limits sync                    # apply it
  *   limitry limits sync --archive-missing  # and archive limits not in the file
  *
@@ -30,7 +30,9 @@ export const limitsSyncCommand: Command = (program, ctx) => {
     program.commands.find((c) => c.name() === "limits") ??
     program
       .command("limits")
-      .description("archive, create, get, grants, list, restore, sync, update");
+      .description(
+        "archive, create, credits, get, list, restore, sync, update",
+      );
   syncCommand(
     group.command("sync"),
     ctx,
@@ -55,7 +57,7 @@ function syncCommand(
   command
     .description(description)
     .argument("[file]", "the file to read", "limitry.json")
-    .option("--dry-run", "show what would change, and change nothing")
+    .option("--preview", "show what would change, and change nothing")
     .option("--limits <json>", "the limits as a JSON array, instead of a file")
     .option(
       "--archive-missing",
@@ -65,15 +67,16 @@ function syncCommand(
     .option("--json", "machine-readable output")
     .addHelpText(
       "after",
-      '\nThe file: { "limits": [ { "name": "AI budget", "subjectKind": "user", "action": "ai-call", "amount": 200, "unit": "cents", "window": "month" } ] }' +
+      '\nThe file: { "limits": [ { "name": "AI budget", "subject": { "kind": "user" }, "action": "ai-call", "amount": 200, "unit": "cents", "window": "month" } ] }' +
         "\nEach limit is described whole: a field left out is its default, as on `limits create`. Names are the key." +
+        "\nWhat a limit counts (subject, action, unit, window, every, start, rolling) is fixed: to change it, give the entry a new name." +
         more,
     )
     .action(
       async (
         file: string,
         options: {
-          dryRun?: boolean;
+          preview?: boolean;
           limits?: string;
           archiveMissing?: boolean;
           workspace?: string;
@@ -90,7 +93,7 @@ function syncCommand(
             {
               limits,
               archiveMissing: options.archiveMissing ?? false,
-              dryRun: options.dryRun ?? false,
+              preview: options.preview ?? false,
             },
             { idempotencyKey: crypto.randomUUID() },
           );
@@ -103,7 +106,7 @@ function syncCommand(
     );
 }
 
-type LimitInput = Schemas["LimitInput"];
+type LimitInput = Schemas["LimitSyncEntry"];
 type SyncResult = Schemas["LimitSyncResult"];
 
 /** The file's limits, or an error saying what's wrong with the file. */
@@ -149,9 +152,9 @@ function parseLimits(text: string, flag: string): LimitInput[] {
 const show = (value: unknown) =>
   typeof value === "string" ? value : JSON.stringify(value);
 
-/** A short account of what changed (or, on a dry run, what would). */
+/** A short account of what changed (or, with --preview, what would). */
 export function summary(result: SyncResult): string[] {
-  const dry = result.dryRun;
+  const dry = result.preview;
   const lines = [
     ...result.created.map(
       (name) => `${dry ? "Would create" : "Created"}: ${name}`,
@@ -175,6 +178,6 @@ export function summary(result: SyncResult): string[] {
     ];
   }
   if (same > 0) lines.push(`Unchanged: ${same}`);
-  if (dry) lines.push("Dry run: nothing was changed.");
+  if (dry) lines.push("Preview: nothing was changed.");
   return lines;
 }

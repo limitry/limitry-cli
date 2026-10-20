@@ -33,7 +33,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Asks whether `subject` may do `action` at `cost`, given every enabled limit that applies, and — in `consume` mode — uses it. Always 200 for a decision: read `allowed`; `remaining` shows what is left per limit and `retryAfterSeconds` when to try again. An `Idempotency-Key` header makes a retried check return the same decision without using twice. Its API-key check is cached briefly for speed: a revoked key can keep working here for up to 60 seconds.",
+    "description": "Asks whether `subject` may do `action` at `cost`, given every enabled limit that applies, and — in `consume` mode — uses it. Always 200 for a decision, allowed or refused: read `allowed`; `limits` shows what is left on each limit and `retryAfterSeconds` when to try again. An `Idempotency-Key` header makes a retried check return the same decision without using twice. Its API-key check is cached briefly for speed: a revoked key can keep working here for up to 60 seconds.",
     "fields": [
       {
         "name": "subject",
@@ -138,7 +138,7 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "string",
         "required": false,
-        "description": "`consume` (default) decides and uses; `preview` decides without using; `reserve` decides and HOLDS `cost` (an estimate) until you commit the actual amount or release it — see `reservation` in the answer. Only a reservation takes a slot of a `concurrent` limit.",
+        "description": "`consume` (default) decides and uses; `preview` decides without using; `reserve` decides and reserves `cost` (what it will probably use) until you commit the actual amount or release it — see `reservation` in the answer. Only a reservation takes a slot of a `concurrent` limit.",
         "example": "consume",
         "schema": {
           "type": "string",
@@ -147,7 +147,7 @@ export const OPERATIONS: readonly Operation[] = [
             "preview",
             "reserve"
           ],
-          "description": "`consume` (default) decides and uses; `preview` decides without using; `reserve` decides and HOLDS `cost` (an estimate) until you commit the actual amount or release it — see `reservation` in the answer. Only a reservation takes a slot of a `concurrent` limit."
+          "description": "`consume` (default) decides and uses; `preview` decides without using; `reserve` decides and reserves `cost` (what it will probably use) until you commit the actual amount or release it — see `reservation` in the answer. Only a reservation takes a slot of a `concurrent` limit."
         }
       },
       {
@@ -155,13 +155,13 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "number",
         "required": false,
-        "description": "With `reserve`: how long the hold lasts before it releases itself. Default 300, at most 3600.",
+        "description": "With `reserve`: how long the reservation lasts before it releases itself. Default 300, at most 3600.",
         "example": 300,
         "schema": {
           "type": "integer",
           "minimum": 1,
           "maximum": 3600,
-          "description": "With `reserve`: how long the hold lasts before it releases itself. Default 300, at most 3600."
+          "description": "With `reserve`: how long the reservation lasts before it releases itself. Default 300, at most 3600."
         }
       }
     ],
@@ -190,14 +190,14 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Stops a limit: checks stop enforcing it within a minute, and it leaves the list. It is archived, not erased — its usage history and credit grants stay, and `POST /v1/limits/{limitId}/restore` brings it back. Owners and admins only, for a person's token.",
+    "description": "Stops a limit: checks stop enforcing it at once, and it leaves the list. It is archived, not erased — its usage history and credits stay, and `POST /v1/limits/{limitId}/restore` brings it back. Owners and admins only, for a person's token.",
     "fields": [
       {
         "name": "limitId",
         "in": "path",
         "type": "string",
         "required": true,
-        "example": "lim_3f0c…",
+        "example": "lmt_3f0c…",
         "schema": {
           "type": "string"
         }
@@ -226,64 +226,68 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Limits how much of an action a subject may use per window — for example 200 cents of `ai-call` a month for every `user`. Checks enforce it from then on. Names are unique among the environment's active limits. Owners and admins only, for a person's token.",
+    "description": "Limits how much a subject may use per window — for example 200 cents a month for every `user`. Only `subject.kind`, `amount` and `window` are needed: `action` defaults to every action (`*`), `unit` to units, and `name` to the sentence the limit reads as. Checks enforce it from then on. What it counts (subject, action, unit, window, every, start, rolling) is fixed once created. Owners and admins only, for a person's token.",
     "fields": [
       {
         "name": "name",
         "in": "body",
         "type": "string",
-        "required": true,
-        "description": "A name for the limit, unique among its environment's active limits.",
+        "required": false,
+        "description": "A name, unique among the environment's active limits. Default: the sentence the limit reads as, such as \"200 cents per user per month\". If a limit already has that name, the answer is 409: give this one a name.",
         "example": "AI budget",
         "schema": {
           "type": "string",
           "minLength": 1,
           "maxLength": 100,
-          "description": "A name for the limit, unique among its environment's active limits."
+          "description": "A name, unique among the environment's active limits. Default: the sentence the limit reads as, such as \"200 cents per user per month\". If a limit already has that name, the answer is 409: give this one a name."
         }
       },
       {
-        "name": "subjectKind",
+        "name": "subject",
         "in": "body",
-        "type": "string",
+        "type": "json",
         "required": true,
-        "description": "Your own label for who is checked.",
-        "example": "user",
+        "description": "Who it applies to: `{\"kind\": \"user\"}` for every user, `{\"kind\": \"user\", \"id\": \"usr_123\"}` for one.",
+        "example": {
+          "kind": "user"
+        },
         "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100,
-          "description": "Your own label for who is checked."
-        }
-      },
-      {
-        "name": "subjectId",
-        "in": "body",
-        "type": "string",
-        "required": false,
-        "description": "One subject; omit or null for every subject of the kind. A subject's own limit replaces the kind's limits with the same action and window.",
-        "schema": {
-          "type": [
-            "string",
-            "null"
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "Your own label for who is checked: user, team, apikey …"
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "One subject; omit or null for every subject of the kind. A subject's own limit replaces the kind's limits with the same action and window."
+            }
+          },
+          "required": [
+            "kind"
           ],
-          "minLength": 1,
-          "maxLength": 100,
-          "description": "One subject; omit or null for every subject of the kind. A subject's own limit replaces the kind's limits with the same action and window."
+          "description": "Who it applies to: `{\"kind\": \"user\"}` for every user, `{\"kind\": \"user\", \"id\": \"usr_123\"}` for one."
         }
       },
       {
         "name": "action",
         "in": "body",
         "type": "string",
-        "required": true,
-        "description": "The action to limit; `*` for every action.",
+        "required": false,
+        "description": "The action to limit. Default: `*`, every action.",
         "example": "ai-call",
         "schema": {
           "type": "string",
           "minLength": 1,
           "maxLength": 100,
-          "description": "The action to limit; `*` for every action."
+          "description": "The action to limit. Default: `*`, every action."
         }
       },
       {
@@ -305,13 +309,13 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "string",
         "required": false,
-        "description": "What the amount counts (display only). Default: units.",
+        "description": "What the amount counts, in words. Default: units.",
         "example": "cents",
         "schema": {
           "type": "string",
           "minLength": 1,
           "maxLength": 40,
-          "description": "What the amount counts (display only). Default: units."
+          "description": "What the amount counts, in words. Default: units."
         }
       },
       {
@@ -319,7 +323,7 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "string",
         "required": true,
-        "description": "`minute`, `hour`, `day`, `week`, `month` or `year`: a period of `every` of them, refilled where `start` says (or rolling: see `rolling`). `total`: a balance that never resets, topped up by grants. `concurrent`: at most `amount` held reservations at once.",
+        "description": "`minute`, `hour`, `day`, `week`, `month` or `year`: a period of `every` of them, reset where `start` says (or rolling: see `rolling`). `total`: a balance that never resets, raised by credits. `concurrent`: at most `amount` open reservations at once.",
         "example": "month",
         "schema": {
           "type": "string",
@@ -333,7 +337,7 @@ export const OPERATIONS: readonly Operation[] = [
             "total",
             "concurrent"
           ],
-          "description": "`minute`, `hour`, `day`, `week`, `month` or `year`: a period of `every` of them, refilled where `start` says (or rolling: see `rolling`). `total`: a balance that never resets, topped up by grants. `concurrent`: at most `amount` held reservations at once."
+          "description": "`minute`, `hour`, `day`, `week`, `month` or `year`: a period of `every` of them, reset where `start` says (or rolling: see `rolling`). `total`: a balance that never resets, raised by credits. `concurrent`: at most `amount` open reservations at once."
         }
       },
       {
@@ -355,16 +359,16 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "string",
         "required": false,
-        "description": "Where a period begins. `calendar`: UTC boundaries (midnight, Monday, the 1st, 1 January). `anchor`: from the subject's anchor, its billing date, set with `subjects.update` (its first check until then), so an annual plan can refill monthly from its start day. `first_use`: at the first check after the previous period ended. Default: calendar.",
+        "description": "Where a period begins. `calendar`: UTC boundaries (midnight, Monday, the 1st, 1 January). `billing_date`: from the subject's billing date, set with `subjects.update` (its first check until then), so an annual plan can reset monthly from its start day. `first_use`: at the first check after the previous period ended. Default: calendar.",
         "example": "calendar",
         "schema": {
           "type": "string",
           "enum": [
             "calendar",
-            "anchor",
+            "billing_date",
             "first_use"
           ],
-          "description": "Where a period begins. `calendar`: UTC boundaries (midnight, Monday, the 1st, 1 January). `anchor`: from the subject's anchor, its billing date, set with `subjects.update` (its first check until then), so an annual plan can refill monthly from its start day. `first_use`: at the first check after the previous period ended. Default: calendar."
+          "description": "Where a period begins. `calendar`: UTC boundaries (midnight, Monday, the 1st, 1 January). `billing_date`: from the subject's billing date, set with `subjects.update` (its first check until then), so an annual plan can reset monthly from its start day. `first_use`: at the first check after the previous period ended. Default: calendar."
         }
       },
       {
@@ -410,50 +414,12 @@ export const OPERATIONS: readonly Operation[] = [
     "scope": "limits:write"
   },
   {
-    "operationId": "limits.get",
-    "method": "get",
-    "path": "/limits/{limitId}",
-    "summary": "Get a limit",
-    "cli": {
-      "command": "limits get",
-      "args": [
-        "limitId"
-      ],
-      "confirm": false
-    },
-    "mcp": {
-      "exposed": true,
-      "name": "limits_get",
-      "hints": {
-        "readOnlyHint": true,
-        "destructiveHint": false,
-        "idempotentHint": true
-      }
-    },
-    "description": "One limit: who it applies to, the action, amount and window.",
-    "fields": [
-      {
-        "name": "limitId",
-        "in": "path",
-        "type": "string",
-        "required": true,
-        "example": "lim_3f0c…",
-        "schema": {
-          "type": "string"
-        }
-      }
-    ],
-    "hasBody": false,
-    "workspace": true,
-    "scope": "limits:read"
-  },
-  {
-    "operationId": "limits.grants.create",
+    "operationId": "limits.credits.create",
     "method": "post",
-    "path": "/limits/{limitId}/grants",
+    "path": "/limits/{limitId}/credits",
     "summary": "Add credits to a balance",
     "cli": {
-      "command": "limits grants create",
+      "command": "limits credits create",
       "args": [
         "limitId"
       ],
@@ -461,16 +427,16 @@ export const OPERATIONS: readonly Operation[] = [
     },
     "mcp": {
       "exposed": false,
-      "reason": "Adding credits gives value away; an agent asks a person (limit.grant approval)"
+      "reason": "Adding credits gives value away; an agent asks a person (limit.credit approval)"
     },
-    "description": "Adds `amount` to one subject's balance — a limit whose window is `total`. A negative `amount` takes credits back (a refund, a chargeback) and needs a `note` saying why; the balance may go below zero, and checks are refused until it is topped up. Owners and admins, or a workspace API key; an agent asks a person (the `limit.grant` approval).",
+    "description": "Adds `amount` credits to one subject's balance — a limit whose window is `total`. A negative `amount` takes credits back (a refund, a chargeback) and needs a `note` saying why; the balance may go below zero, and checks are refused until more credits are added. Owners and admins, or a workspace API key; an agent asks a person (the `limit.credit` approval).",
     "fields": [
       {
         "name": "limitId",
         "in": "path",
         "type": "string",
         "required": true,
-        "example": "lim_3f0c…",
+        "example": "lmt_3f0c…",
         "schema": {
           "type": "string"
         }
@@ -524,7 +490,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": false,
         "description": "Required when `amount` is negative.",
-        "example": "October top-up",
+        "example": "October credits",
         "schema": {
           "type": "string",
           "maxLength": 200,
@@ -537,12 +503,12 @@ export const OPERATIONS: readonly Operation[] = [
     "scope": "limits:write"
   },
   {
-    "operationId": "limits.grants.list",
+    "operationId": "limits.credits.list",
     "method": "get",
-    "path": "/limits/{limitId}/grants",
-    "summary": "List a balance's grants",
+    "path": "/limits/{limitId}/credits",
+    "summary": "List a balance's credits",
     "cli": {
-      "command": "limits grants list",
+      "command": "limits credits list",
       "args": [
         "limitId"
       ],
@@ -550,21 +516,59 @@ export const OPERATIONS: readonly Operation[] = [
     },
     "mcp": {
       "exposed": true,
-      "name": "limits_grants_list",
+      "name": "limits_credits_list",
       "hints": {
         "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true
       }
     },
-    "description": "Credits added to subjects' balances for this limit, newest first.",
+    "description": "Credits added to (or taken back from) subjects' balances for this limit, newest first.",
     "fields": [
       {
         "name": "limitId",
         "in": "path",
         "type": "string",
         "required": true,
-        "example": "lim_3f0c…",
+        "example": "lmt_3f0c…",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "hasBody": false,
+    "workspace": true,
+    "scope": "limits:read"
+  },
+  {
+    "operationId": "limits.get",
+    "method": "get",
+    "path": "/limits/{limitId}",
+    "summary": "Get a limit",
+    "cli": {
+      "command": "limits get",
+      "args": [
+        "limitId"
+      ],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "limits_get",
+      "hints": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    "description": "One limit: who it applies to, the action, amount and window.",
+    "fields": [
+      {
+        "name": "limitId",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "example": "lmt_3f0c…",
         "schema": {
           "type": "string"
         }
@@ -695,7 +699,7 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "path",
         "type": "string",
         "required": true,
-        "example": "lim_3f0c…",
+        "example": "lmt_3f0c…",
         "schema": {
           "type": "string"
         }
@@ -725,18 +729,20 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Makes the environment's limits match `limits`, by name: creates the missing, changes those that differ (an omitted field means its default) and, with `archiveMissing`, archives active limits the list doesn't name. Running it twice changes nothing the second time. Limitry checks the whole list first, and a problem anywhere changes nothing (400, each problem in `details`); then it writes every change at once. `dryRun` answers the plan without writing. For keeping limits in a file in your repository (`limitry sync`). Owners and admins only, for a person's token.",
+    "description": "Makes the environment's limits match `limits`, by name: creates the missing, changes those that differ (an omitted field means its default) and, with `archiveMissing`, archives active limits the list doesn't name. Running it twice changes nothing the second time. Limitry checks the whole list first, and a problem anywhere changes nothing (400, each problem in `details`); then it writes every change at once. What a limit counts is fixed: a different subject, action, unit or window under an existing name is refused until the entry is renamed. `preview` answers what it would do without writing. For keeping limits in a file in your repository (`limitry sync`). Owners and admins only, for a person's token.",
     "fields": [
       {
         "name": "limits",
         "in": "body",
         "type": "json",
         "required": true,
-        "description": "Every limit you want, each described whole: an omitted field is its default, as on create. Names are the key and must be unique in the list. At most 200.",
+        "description": "Every limit you want, each described whole: an omitted field is its default, as on create. Names are the key and must be unique in the list. What a limit counts (subject, action, unit, window, every, start, rolling) is fixed: to change it, rename the entry, which creates a new limit. At most 200.",
         "example": [
           {
             "name": "AI budget",
-            "subjectKind": "user",
+            "subject": {
+              "kind": "user"
+            },
             "action": "ai-call",
             "amount": 200,
             "unit": "cents",
@@ -746,103 +752,29 @@ export const OPERATIONS: readonly Operation[] = [
         "schema": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 100,
-                "description": "A name for the limit, unique among its environment's active limits."
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LimitInput"
               },
-              "subjectKind": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 100,
-                "description": "Your own label for who is checked."
-              },
-              "subjectId": {
-                "type": [
-                  "string",
-                  "null"
-                ],
-                "minLength": 1,
-                "maxLength": 100,
-                "description": "One subject; omit or null for every subject of the kind. A subject's own limit replaces the kind's limits with the same action and window."
-              },
-              "action": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 100,
-                "description": "The action to limit; `*` for every action."
-              },
-              "amount": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 1000000000,
-                "description": "How many units each subject may use per window."
-              },
-              "unit": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 40,
-                "description": "What the amount counts (display only). Default: units."
-              },
-              "window": {
-                "type": "string",
-                "enum": [
-                  "minute",
-                  "hour",
-                  "day",
-                  "week",
-                  "month",
-                  "year",
-                  "total",
-                  "concurrent"
-                ],
-                "description": "`minute`, `hour`, `day`, `week`, `month` or `year`: a period of `every` of them, refilled where `start` says (or rolling: see `rolling`). `total`: a balance that never resets, topped up by grants. `concurrent`: at most `amount` held reservations at once."
-              },
-              "every": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 1000,
-                "description": "How many `window` units a period lasts: `window: \"month\", every: 3` is a quarter, `window: \"hour\", every: 5` five hours. Default: 1."
-              },
-              "start": {
-                "type": "string",
-                "enum": [
-                  "calendar",
-                  "anchor",
-                  "first_use"
-                ],
-                "description": "Where a period begins. `calendar`: UTC boundaries (midnight, Monday, the 1st, 1 January). `anchor`: from the subject's anchor, its billing date, set with `subjects.update` (its first check until then), so an annual plan can refill monthly from its start day. `first_use`: at the first check after the previous period ended. Default: calendar."
-              },
-              "rolling": {
-                "type": "boolean",
-                "description": "Count the last window instead of the calendar one (minute, hour or day only). Default: false."
-              },
-              "enabled": {
-                "type": "boolean",
-                "description": "Whether checks enforce it. Default: true."
-              },
-              "failMode": {
-                "type": "string",
-                "enum": [
-                  "open",
-                  "closed"
-                ],
-                "description": "What your code should do when Limitry can't be reached: `open` (allow) or `closed` (deny). Default: open."
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "example": "AI budget",
+                    "description": "The limit's name: the key a sync matches on, unique in the list."
+                  }
+                },
+                "required": [
+                  "name"
+                ]
               }
-            },
-            "required": [
-              "name",
-              "subjectKind",
-              "action",
-              "amount",
-              "window"
             ]
           },
           "maxItems": 200,
-          "description": "Every limit you want, each described whole: an omitted field is its default, as on create. Names are the key and must be unique in the list. At most 200."
+          "description": "Every limit you want, each described whole: an omitted field is its default, as on create. Names are the key and must be unique in the list. What a limit counts (subject, action, unit, window, every, start, rolling) is fixed: to change it, rename the entry, which creates a new limit. At most 200."
         }
       },
       {
@@ -857,7 +789,7 @@ export const OPERATIONS: readonly Operation[] = [
         }
       },
       {
-        "name": "dryRun",
+        "name": "preview",
         "in": "body",
         "type": "boolean",
         "required": false,
@@ -893,14 +825,14 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Changes any of a limit's fields; checks use the new rule within a minute. Owners and admins only, for a person's token.",
+    "description": "Changes a limit's name, amount, fail mode or whether it is enabled; checks use the new rule at once. What a limit counts (subject, action, unit, window, every, start, rolling) is fixed: a different value is refused (400) — create a new limit and archive this one. Owners and admins only, for a person's token.",
     "fields": [
       {
         "name": "limitId",
         "in": "path",
         "type": "string",
         "required": true,
-        "example": "lim_3f0c…",
+        "example": "lmt_3f0c…",
         "schema": {
           "type": "string"
         }
@@ -910,57 +842,13 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "string",
         "required": false,
-        "description": "A name for the limit, unique among its environment's active limits.",
+        "description": "A new name, unique among the environment's active limits.",
         "example": "AI budget",
         "schema": {
           "type": "string",
           "minLength": 1,
           "maxLength": 100,
-          "description": "A name for the limit, unique among its environment's active limits."
-        }
-      },
-      {
-        "name": "subjectKind",
-        "in": "body",
-        "type": "string",
-        "required": false,
-        "description": "Your own label for who is checked.",
-        "example": "user",
-        "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100,
-          "description": "Your own label for who is checked."
-        }
-      },
-      {
-        "name": "subjectId",
-        "in": "body",
-        "type": "string",
-        "required": false,
-        "description": "One subject; omit or null for every subject of the kind. A subject's own limit replaces the kind's limits with the same action and window.",
-        "schema": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "minLength": 1,
-          "maxLength": 100,
-          "description": "One subject; omit or null for every subject of the kind. A subject's own limit replaces the kind's limits with the same action and window."
-        }
-      },
-      {
-        "name": "action",
-        "in": "body",
-        "type": "string",
-        "required": false,
-        "description": "The action to limit; `*` for every action.",
-        "example": "ai-call",
-        "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100,
-          "description": "The action to limit; `*` for every action."
+          "description": "A new name, unique among the environment's active limits."
         }
       },
       {
@@ -969,7 +857,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "number",
         "required": false,
         "description": "How many units each subject may use per window.",
-        "example": 200,
+        "example": 300,
         "schema": {
           "type": "integer",
           "minimum": 1,
@@ -978,17 +866,86 @@ export const OPERATIONS: readonly Operation[] = [
         }
       },
       {
+        "name": "enabled",
+        "in": "body",
+        "type": "boolean",
+        "required": false,
+        "description": "Whether checks enforce it.",
+        "schema": {
+          "type": "boolean",
+          "description": "Whether checks enforce it."
+        }
+      },
+      {
+        "name": "failMode",
+        "in": "body",
+        "type": "string",
+        "required": false,
+        "description": "What your code should do when Limitry can't be reached: `open` (allow) or `closed` (deny).",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "open",
+            "closed"
+          ],
+          "description": "What your code should do when Limitry can't be reached: `open` (allow) or `closed` (deny)."
+        }
+      },
+      {
+        "name": "subject",
+        "in": "body",
+        "type": "json",
+        "required": false,
+        "description": "Who it applies to. Fixed once the limit is created: to change it, create a new limit and archive this one.",
+        "example": {
+          "kind": "user"
+        },
+        "schema": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "Your own label for who is checked: user, team, apikey …"
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1,
+              "maxLength": 100,
+              "description": "One subject; omit or null for every subject of the kind. A subject's own limit replaces the kind's limits with the same action and window."
+            }
+          },
+          "description": "Who it applies to. Fixed once the limit is created: to change it, create a new limit and archive this one."
+        }
+      },
+      {
+        "name": "action",
+        "in": "body",
+        "type": "string",
+        "required": false,
+        "description": "The action. Fixed once the limit is created: to change it, create a new limit and archive this one.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The action. Fixed once the limit is created: to change it, create a new limit and archive this one."
+        }
+      },
+      {
         "name": "unit",
         "in": "body",
         "type": "string",
         "required": false,
-        "description": "What the amount counts (display only). Default: units.",
-        "example": "cents",
+        "description": "What the amount counts. Fixed once the limit is created: to change it, create a new limit and archive this one.",
         "schema": {
           "type": "string",
           "minLength": 1,
           "maxLength": 40,
-          "description": "What the amount counts (display only). Default: units."
+          "description": "What the amount counts. Fixed once the limit is created: to change it, create a new limit and archive this one."
         }
       },
       {
@@ -996,8 +953,7 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "string",
         "required": false,
-        "description": "`minute`, `hour`, `day`, `week`, `month` or `year`: a period of `every` of them, refilled where `start` says (or rolling: see `rolling`). `total`: a balance that never resets, topped up by grants. `concurrent`: at most `amount` held reservations at once.",
-        "example": "month",
+        "description": "The window. Fixed once the limit is created: to change it, create a new limit and archive this one.",
         "schema": {
           "type": "string",
           "enum": [
@@ -1010,7 +966,7 @@ export const OPERATIONS: readonly Operation[] = [
             "total",
             "concurrent"
           ],
-          "description": "`minute`, `hour`, `day`, `week`, `month` or `year`: a period of `every` of them, refilled where `start` says (or rolling: see `rolling`). `total`: a balance that never resets, topped up by grants. `concurrent`: at most `amount` held reservations at once."
+          "description": "The window. Fixed once the limit is created: to change it, create a new limit and archive this one."
         }
       },
       {
@@ -1018,13 +974,12 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "number",
         "required": false,
-        "description": "How many `window` units a period lasts: `window: \"month\", every: 3` is a quarter, `window: \"hour\", every: 5` five hours. Default: 1.",
-        "example": 1,
+        "description": "How many windows a period lasts. Fixed once the limit is created: to change it, create a new limit and archive this one.",
         "schema": {
           "type": "integer",
           "minimum": 1,
           "maximum": 1000,
-          "description": "How many `window` units a period lasts: `window: \"month\", every: 3` is a quarter, `window: \"hour\", every: 5` five hours. Default: 1."
+          "description": "How many windows a period lasts. Fixed once the limit is created: to change it, create a new limit and archive this one."
         }
       },
       {
@@ -1032,16 +987,15 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "string",
         "required": false,
-        "description": "Where a period begins. `calendar`: UTC boundaries (midnight, Monday, the 1st, 1 January). `anchor`: from the subject's anchor, its billing date, set with `subjects.update` (its first check until then), so an annual plan can refill monthly from its start day. `first_use`: at the first check after the previous period ended. Default: calendar.",
-        "example": "calendar",
+        "description": "Where a period begins. Fixed once the limit is created: to change it, create a new limit and archive this one.",
         "schema": {
           "type": "string",
           "enum": [
             "calendar",
-            "anchor",
+            "billing_date",
             "first_use"
           ],
-          "description": "Where a period begins. `calendar`: UTC boundaries (midnight, Monday, the 1st, 1 January). `anchor`: from the subject's anchor, its billing date, set with `subjects.update` (its first check until then), so an annual plan can refill monthly from its start day. `first_use`: at the first check after the previous period ended. Default: calendar."
+          "description": "Where a period begins. Fixed once the limit is created: to change it, create a new limit and archive this one."
         }
       },
       {
@@ -1049,36 +1003,10 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "boolean",
         "required": false,
-        "description": "Count the last window instead of the calendar one (minute, hour or day only). Default: false.",
+        "description": "Whether it counts the last window. Fixed once the limit is created: to change it, create a new limit and archive this one.",
         "schema": {
           "type": "boolean",
-          "description": "Count the last window instead of the calendar one (minute, hour or day only). Default: false."
-        }
-      },
-      {
-        "name": "enabled",
-        "in": "body",
-        "type": "boolean",
-        "required": false,
-        "description": "Whether checks enforce it. Default: true.",
-        "schema": {
-          "type": "boolean",
-          "description": "Whether checks enforce it. Default: true."
-        }
-      },
-      {
-        "name": "failMode",
-        "in": "body",
-        "type": "string",
-        "required": false,
-        "description": "What your code should do when Limitry can't be reached: `open` (allow) or `closed` (deny). Default: open.",
-        "schema": {
-          "type": "string",
-          "enum": [
-            "open",
-            "closed"
-          ],
-          "description": "What your code should do when Limitry can't be reached: `open` (allow) or `closed` (deny). Default: open."
+          "description": "Whether it counts the last window. Fixed once the limit is created: to change it, create a new limit and archive this one."
         }
       }
     ],
@@ -1107,7 +1035,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Settles a hold with the ACTUAL amount used (`cost`): less than held gives the rest back at once; more is charged in full — the work happened. A commit after the hold expired still charges `cost`. Repeating a commit answers the same. Its API-key check is cached briefly for speed: a revoked key can keep working here for up to 60 seconds.",
+    "description": "Commits a reservation with the ACTUAL amount used (`cost`): less than reserved gives the rest back at once; more is charged in full — the work happened. A commit after the reservation expired still charges `cost`. Repeating a commit answers the same. Its API-key check is cached briefly for speed: a revoked key can keep working here for up to 60 seconds.",
     "fields": [
       {
         "name": "reservationId",
@@ -1157,7 +1085,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Keeps a hold for longer work: it now expires `ttlSeconds` from now (default 300, at most 3600) — call it again as a heartbeat. Only a held reservation can be extended. Its API-key check is cached briefly for speed: a revoked key can keep working here for up to 60 seconds.",
+    "description": "Keeps a reservation for longer work: it now expires `ttlSeconds` from now (default 300, at most 3600) — call it again as a heartbeat. Only an open reservation can be extended. Its API-key check is cached briefly for speed: a revoked key can keep working here for up to 60 seconds.",
     "fields": [
       {
         "name": "reservationId",
@@ -1208,7 +1136,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Gives the whole hold back — the work did not happen. Repeating a release answers the same; releasing a committed reservation is refused. Its API-key check is cached briefly for speed: a revoked key can keep working here for up to 60 seconds.",
+    "description": "Gives the whole reservation back — the work did not happen. Repeating a release answers the same; releasing a committed reservation is refused. Its API-key check is cached briefly for speed: a revoked key can keep working here for up to 60 seconds.",
     "fields": [
       {
         "name": "reservationId",
@@ -1246,7 +1174,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "A subject's anchor: when its `anchor` limits' periods start from. A subject is yours (a user, a team, an agent) and exists once a check names it.",
+    "description": "A subject's billing date: when its `billing_date` limits' periods start from. A subject is yours (a user, a team, an agent) and exists once a check names it.",
     "fields": [
       {
         "name": "subjectKind",
@@ -1299,7 +1227,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Refills one limit on a subject (`limitId`), or every limit on it (`{}`), at once: for goodwill, a promotion or support. The schedule doesn't move: the next refill is still the usual one. A balance goes back to its amount; a concurrent limit is skipped. Send an Idempotency-Key and a repeat resets once. Owners and admins only, for a person's token.",
+    "description": "Resets one limit on a subject (`limitId`), or every limit on it (`{}`), at once: for goodwill, a promotion or support. The schedule doesn't move: the next reset is still the usual one. A balance goes back to its amount; a concurrent limit is skipped. Send an Idempotency-Key and a repeat resets once. Owners and admins only, for a person's token.",
     "fields": [
       {
         "name": "subjectKind",
@@ -1331,7 +1259,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": false,
         "description": "Just this limit. Default: every limit on the subject.",
-        "example": "lim_3f0c…",
+        "example": "lmt_3f0c…",
         "schema": {
           "type": "string",
           "description": "Just this limit. Default: every limit on the subject."
@@ -1346,7 +1274,7 @@ export const OPERATIONS: readonly Operation[] = [
     "operationId": "subjects.update",
     "method": "patch",
     "path": "/subjects/{subjectKind}/{subjectId}",
-    "summary": "Set a subject's anchor",
+    "summary": "Set a subject's billing date",
     "cli": {
       "command": "subjects update",
       "args": [
@@ -1364,7 +1292,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Sets when a subject's `anchor` limits' periods start from: typically its subscription's start date, from your billing system's webhook, so its allowance refills on its own billing day (monthly for an annual plan, too). Owners and admins only, for a person's token.",
+    "description": "Sets when a subject's `billing_date` limits' periods start from: typically its subscription's start date, from your billing system's webhook, so its allowance resets on its own billing day (monthly for an annual plan, too). Owners and admins only, for a person's token.",
     "fields": [
       {
         "name": "subjectKind",
@@ -1391,7 +1319,7 @@ export const OPERATIONS: readonly Operation[] = [
         }
       },
       {
-        "name": "anchor",
+        "name": "billingDate",
         "in": "body",
         "type": "string",
         "required": true,
@@ -1427,7 +1355,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Units used, checks allowed and denied for one limit — across all subjects, or one (`subjectKind` + `subjectId`) — per hour or per day (UTC), every bucket in the range included. Up to about a minute behind live checks. Default: the last 30 days, by day.",
+    "description": "Units used, checks allowed and refused for one limit — across all subjects, or one (`subject`, as `kind:id`) — per hour or per day (UTC), every bucket in the range included. Up to about a minute behind live checks. Default: the last 30 days, by day.",
     "fields": [
       {
         "name": "limitId",
@@ -1435,34 +1363,24 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The limit.",
-        "example": "lim_3f0c…",
+        "example": "lmt_3f0c…",
         "schema": {
           "type": "string",
           "description": "The limit."
         }
       },
       {
-        "name": "subjectKind",
+        "name": "subject",
         "in": "query",
         "type": "string",
         "required": false,
-        "description": "With `subjectId`: one subject's usage, not every subject's.",
-        "example": "user",
+        "description": "One subject's usage, not every subject's, as `kind:id`.",
+        "example": "user:usr_123",
         "schema": {
           "type": "string",
-          "description": "With `subjectId`: one subject's usage, not every subject's."
-        }
-      },
-      {
-        "name": "subjectId",
-        "in": "query",
-        "type": "string",
-        "required": false,
-        "description": "With `subjectKind`: one subject's usage.",
-        "example": "usr_123",
-        "schema": {
-          "type": "string",
-          "description": "With `subjectKind`: one subject's usage."
+          "minLength": 3,
+          "maxLength": 301,
+          "description": "One subject's usage, not every subject's, as `kind:id`."
         }
       },
       {
@@ -1531,34 +1449,20 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Every enabled limit on one subject — and on its shared subjects (`shared`, comma-separated `kind:id`, such as `team:team_42`) — with what is used, what is left and when it resets, exact as of now. For showing an end user where they stand: call it from your server with your key, never from a browser. Not a check: nothing is counted. A subject with no limit here answers an empty `limits` list.",
+    "description": "Every enabled limit on one subject (`subject`, as `kind:id`, such as `user:usr_123`) — and on its shared subjects (`shared`, comma-separated `kind:id`, such as `team:team_42`) — with what is used, what is left and when it resets, exact as of now. For showing an end user where they stand: call it from your server with your key, never from a browser. Not a check: nothing is counted. A subject with no limit here answers an empty `limits` list.",
     "fields": [
       {
-        "name": "kind",
+        "name": "subject",
         "in": "query",
         "type": "string",
         "required": true,
-        "description": "The subject's kind, as your checks send it.",
-        "example": "user",
+        "description": "The subject, as `kind:id`: its kind and id as your checks send them.",
+        "example": "user:usr_123",
         "schema": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 100,
-          "description": "The subject's kind, as your checks send it."
-        }
-      },
-      {
-        "name": "id",
-        "in": "query",
-        "type": "string",
-        "required": true,
-        "description": "The subject's id, as your checks send it.",
-        "example": "usr_123",
-        "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200,
-          "description": "The subject's id, as your checks send it."
+          "minLength": 3,
+          "maxLength": 301,
+          "description": "The subject, as `kind:id`: its kind and id as your checks send them."
         }
       },
       {
@@ -1597,7 +1501,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "A limit's subjects in its CURRENT window, most used first: units used, what is left, how many checks were denied — `over` when any were. Up to about a minute behind live checks.",
+    "description": "A limit's subjects in its CURRENT window, most used first: units used, what is left, and how many checks it refused. Up to about a minute behind live checks.",
     "fields": [
       {
         "name": "limitId",
@@ -1605,7 +1509,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The limit.",
-        "example": "lim_3f0c…",
+        "example": "lmt_3f0c…",
         "schema": {
           "type": "string",
           "description": "The limit."

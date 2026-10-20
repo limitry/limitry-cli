@@ -76,17 +76,17 @@ export function parseSubject(value: string): { kind: string; id: string } {
 }
 
 type Decision = Schemas["CheckDecision"];
-type Remaining = Decision["remaining"][number];
+type CheckLimit = Decision["limits"][number];
 
-const left = (r: Remaining) =>
+const left = (r: CheckLimit) =>
   `${r.name}: ${r.remaining} ${r.unit} left${r.resetsAt ? `, resets ${r.resetsAt}` : ""}`;
 
 /** The decision in one line. */
 export function answer(decision: Decision): string {
   if (decision.allowed) {
-    return decision.remaining.length === 0
+    return decision.limits.length === 0
       ? "Allowed. No limit applies."
-      : `Allowed. ${decision.remaining.map(left).join("; ")}`;
+      : `Allowed. ${decision.limits.map(left).join("; ")}`;
   }
   // The API's own sentence: the SDKs and the MCP server show the same.
   return decision.reason?.message ?? "Refused.";
