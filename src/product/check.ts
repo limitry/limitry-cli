@@ -59,6 +59,8 @@ export const checkCommand: Command = (program, ctx) => {
             },
             { idempotencyKey: crypto.randomUUID() },
           );
+        // 204 only answers `limitry-finish-only`, which a command never sends.
+        if (!decision) throw new Error("Limitry answered without a decision");
         ctx.io.stdout(options.json ? json(decision) : answer(decision));
       },
     );

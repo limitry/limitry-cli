@@ -63,6 +63,7 @@ const optional = manifest as typeof manifest & {
   securityContact?: string;
   supportContact?: string;
   features?: ManifestFeatures;
+  launched?: boolean;
   signIn?: ManifestSignIn;
   environments?: ManifestEnvironment[];
   defaultEnvironment?: string;
@@ -105,6 +106,13 @@ export const brand = {
   /** The support address the /contact page shows. Defaults to support@<domain>. */
   supportContact: optional.supportContact ?? `support@${manifest.domain}`,
   colors: manifest.colors,
+  /**
+   * True once the product has launched (brand.json `launched`, set at
+   * launch, never back): its data is customers', so the pre-launch
+   * product reset's `/ops` route is not mounted at all
+   * (docs/deployment.md "Resetting product data"). False when absent.
+   */
+  launched: optional.launched === true,
   /** True once the product has its own brand (brand.json `status: "ready"`), not the platform's placeholders. */
   ready: (manifest as { status?: string }).status === "ready",
 } as const;
