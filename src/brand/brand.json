@@ -1,0 +1,103 @@
+{
+  "$schema": "./brand.schema.json",
+  "status": "ready",
+  "name": "limitry",
+  "productName": "Limitry",
+  "legalName": "Omsome L.L.C-FZ",
+  "releaseMirrors": true,
+  "mirrorProfile": {
+    "topics": [
+      "rate-limiting",
+      "usage-limits",
+      "credits",
+      "budgets",
+      "api-client",
+      "sdk"
+    ]
+  },
+  "domain": "limitry.com",
+  "devDomain": "limitry.dev",
+  "labs": ["lab"],
+  "discordInvite": "https://discord.gg/Nb6QFd6ER4",
+  "summary": "Limitry is the limits, credits and budgets layer for the software you build: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly action one call tells your code whether it may happen.",
+  "expectedAssets": [
+    "logo.svg",
+    "logo-dark.svg",
+    "mark.svg",
+    "favicon.svg",
+    "favicon-internal.svg",
+    "og-default.png",
+    "apple-touch-icon.png"
+  ],
+  "colors": {
+    "brand": "#1E4D8C",
+    "brandForeground": "#FFFFFF",
+    "brandDark": "#7FB2FF",
+    "brandDarkForeground": "#0B1F3A",
+    "paper": "#F6F8FB",
+    "paperDark": "#07121F",
+    "surface": "#FFFFFF",
+    "surfaceDark": "#0D1D31",
+    "mist": "#DCEBFF",
+    "mistDark": "#0F2645",
+    "text": "#0B1F3A",
+    "textDark": "#EAF1FB",
+    "muted": "#4A5B73",
+    "mutedDark": "#A3B6CE",
+    "line": "#DCE4EE",
+    "lineDark": "#1C3352",
+    "sky": "#7FB2FF",
+    "cobalt": "#1E4D8C",
+    "cobaltDark": "#7FB2FF",
+    "cobaltHover": "#173E73",
+    "cobaltHoverDark": "#A8CBFF",
+    "deep": "#0B1F3A",
+    "deepDark": "#0F2645",
+    "focus": "#4F86D6",
+    "held": "#E8A33D",
+    "refused": "#CE2C31",
+    "refusedDark": "#FF6369"
+  },
+  "fonts": {
+    "display": "Manrope Variable",
+    "body": "Manrope Variable",
+    "code": "JetBrains Mono Variable"
+  },
+  "layout": {
+    "radius": "10px",
+    "radiusControl": "8px",
+    "logoHeight": "29px",
+    "gutter": "1.5rem",
+    "contentWidth": "72rem",
+    "readableWidth": "42rem",
+    "sectionGap": "2rem",
+    "navGap": "1.5rem",
+    "barPadding": "1rem",
+    "navCurrentWeight": "400"
+  },
+  "environments": [
+    {
+      "name": "test",
+      "keyPrefix": "lim_test_",
+      "readOnlyWorkspace": true,
+      "agentLabel": "Practice data your developers use",
+      "description": "Use test to build and try things. Test checks aren't billed."
+    },
+    {
+      "name": "live",
+      "keyPrefix": "lim_live_",
+      "agentLabel": "Your real customers",
+      "description": "Use live in production. Live checks count toward your plan."
+    }
+  ],
+  "environmentsDocs": "/docs/test-and-live/",
+  "defaultEnvironment": "test",
+  "signIn": {
+    "providerOrder": ["github", "google"],
+    "emailSignUp": "button"
+  },
+  "devPortOffset": 100,
+  "social": {
+    "background": "#F6F8FB"
+  }
+}
