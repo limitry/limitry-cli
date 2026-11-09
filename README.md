@@ -2,7 +2,7 @@
 
 The Limitry CLI sets up your limits and checks them from a terminal, a script or an agent: create a limit, try a check, and see who is using what, in test before live.
 
-Limitry is the limits, credits and budgets layer for the software you build: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly action one call tells your code whether it may happen.
+Limitry is the limits, credits and budgets layer for the software you build: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly request one call tells your code whether it may happen.
 
 ## Install
 

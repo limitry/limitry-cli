@@ -19,7 +19,7 @@
   "devDomain": "limitry.dev",
   "labs": ["lab"],
   "discordInvite": "https://discord.gg/Nb6QFd6ER4",
-  "summary": "Limitry is the limits, credits and budgets layer for the software you build: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly action one call tells your code whether it may happen.",
+  "summary": "Limitry is the limits, credits and budgets layer for the software you build: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly request one call tells your code whether it may happen.",
   "expectedAssets": [
     "logo.svg",
     "logo-dark.svg",

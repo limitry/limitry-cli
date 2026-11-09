@@ -190,11 +190,11 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "path",
         "type": "string",
         "required": true,
-        "description": "The limit's ID.",
+        "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case.",
         "example": "lmt_6f1c2a9e-4b7d-4e3a-9c5f-8d2b1a0e7c34",
         "schema": {
           "type": "string",
-          "description": "The limit's ID."
+          "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case."
         }
       }
     ],
@@ -433,11 +433,11 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "path",
         "type": "string",
         "required": true,
-        "description": "The limit's ID.",
+        "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case.",
         "example": "lmt_6f1c2a9e-4b7d-4e3a-9c5f-8d2b1a0e7c34",
         "schema": {
           "type": "string",
-          "description": "The limit's ID."
+          "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case."
         }
       },
       {
@@ -530,11 +530,11 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "path",
         "type": "string",
         "required": true,
-        "description": "The limit's ID.",
+        "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case.",
         "example": "lmt_6f1c2a9e-4b7d-4e3a-9c5f-8d2b1a0e7c34",
         "schema": {
           "type": "string",
-          "description": "The limit's ID."
+          "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case."
         }
       },
       {
@@ -624,11 +624,11 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "path",
         "type": "string",
         "required": true,
-        "description": "The limit's ID.",
+        "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case.",
         "example": "lmt_6f1c2a9e-4b7d-4e3a-9c5f-8d2b1a0e7c34",
         "schema": {
           "type": "string",
-          "description": "The limit's ID."
+          "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case."
         }
       }
     ],
@@ -759,11 +759,11 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "path",
         "type": "string",
         "required": true,
-        "description": "The limit's ID.",
+        "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case.",
         "example": "lmt_6f1c2a9e-4b7d-4e3a-9c5f-8d2b1a0e7c34",
         "schema": {
           "type": "string",
-          "description": "The limit's ID."
+          "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case."
         }
       }
     ],
@@ -896,11 +896,11 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "path",
         "type": "string",
         "required": true,
-        "description": "The limit's ID.",
+        "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case.",
         "example": "lmt_6f1c2a9e-4b7d-4e3a-9c5f-8d2b1a0e7c34",
         "schema": {
           "type": "string",
-          "description": "The limit's ID."
+          "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case."
         }
       },
       {
@@ -1428,6 +1428,111 @@ export const OPERATIONS: readonly Operation[] = [
     "scope": "limits:write"
   },
   {
+    "operationId": "usage.overview",
+    "method": "get",
+    "path": "/usage/overview",
+    "summary": "Get every limit's usage at once",
+    "cli": {
+      "command": "usage overview",
+      "args": [],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "usage_overview",
+      "hints": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    "description": "Returns every active limit's usage in one answer, for a question that names no limit. Each limit comes with its name, unit, amount and window, its `total` (units used, checks allowed and refused) and its top subjects. By default, it covers each limit's current window, with exact amounts. For a past range, send `period`, such as `last_month`, or `from` and `to`. The totals and subjects then come from history, and each subject's `remaining` is null. Set `sort` to `refused` to list only the subjects each limit refused, the most refused first. A balance also lists the credits added to it in the range. Usage older than your plan's history isn't returned.",
+    "fields": [
+      {
+        "name": "period",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "A named range instead of `from` and `to`, in UTC: `today`, `this_week` or `last_week` (weeks start on Monday), `this_month` or `last_month`. A current one ends now.",
+        "example": "last_month",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "today",
+            "this_week",
+            "last_week",
+            "this_month",
+            "last_month"
+          ],
+          "description": "A named range instead of `from` and `to`, in UTC: `today`, `this_week` or `last_week` (weeks start on Monday), `this_month` or `last_month`. A current one ends now."
+        }
+      },
+      {
+        "name": "from",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "The start of the range, in ISO 8601.",
+        "example": "2026-10-01T00:00:00Z",
+        "schema": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The start of the range, in ISO 8601."
+        }
+      },
+      {
+        "name": "to",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "The end of the range, in ISO 8601. Default: now.",
+        "example": "2026-11-01T00:00:00Z",
+        "schema": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The end of the range, in ISO 8601. Default: now."
+        }
+      },
+      {
+        "name": "sort",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "`used` lists each limit's most used subjects first, and `refused` only its refused subjects, the most refused first. Default: used.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "used",
+            "refused"
+          ],
+          "default": "used",
+          "description": "`used` lists each limit's most used subjects first, and `refused` only its refused subjects, the most refused first. Default: used."
+        }
+      },
+      {
+        "name": "top",
+        "in": "query",
+        "type": "number",
+        "required": false,
+        "description": "How many subjects to list for each limit, up to 20. Default: 5.",
+        "schema": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 20,
+          "default": 5,
+          "description": "How many subjects to list for each limit, up to 20. Default: 5."
+        }
+      }
+    ],
+    "hasBody": false,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "limits:read"
+  },
+  {
     "operationId": "usage.query",
     "method": "get",
     "path": "/usage",
@@ -1446,18 +1551,31 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Returns one limit's usage over time: the units used, and the checks allowed and refused. It covers every subject, or one subject named in `subject` as `kind:id`. Usage comes in hourly or daily buckets in UTC, and the response includes every bucket in the range. It can be up to about a minute behind live checks. By default, it covers the last 30 days, by day. A request returns at most 2,000 buckets. Usage older than your plan's history isn't returned.",
+    "description": "Returns one limit's usage over time: the units used, and the checks allowed and refused, with the range's `total` beside the buckets. It covers every subject, or one subject named in `subject` as `kind:id`. Name the limit by `limitId` or `limitName`. Choose the range with `period` (such as `last_month`) or `from` and `to`. Usage comes in hourly or daily buckets in UTC, and the response includes every bucket in the range. It can be up to about a minute behind live checks. By default, it covers the last 30 days, by day. A request returns at most 2,000 buckets. Usage older than your plan's history isn't returned.",
     "fields": [
       {
         "name": "limitId",
         "in": "query",
         "type": "string",
-        "required": true,
-        "description": "The limit's ID.",
+        "required": false,
+        "description": "The limit's ID. Send this or `limitName`.",
         "example": "lmt_6f1c2a9e-4b7d-4e3a-9c5f-8d2b1a0e7c34",
         "schema": {
           "type": "string",
-          "description": "The limit's ID."
+          "description": "The limit's ID. Send this or `limitName`."
+        }
+      },
+      {
+        "name": "limitName",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "The limit's name, instead of its ID. It matches an active limit in this environment, exactly or else ignoring case.",
+        "example": "AI budget",
+        "schema": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "The limit's name, instead of its ID. It matches an active limit in this environment, exactly or else ignoring case."
         }
       },
       {
@@ -1472,6 +1590,25 @@ export const OPERATIONS: readonly Operation[] = [
           "minLength": 3,
           "maxLength": 301,
           "description": "One subject, as `kind:id`, to see its usage instead of every subject's."
+        }
+      },
+      {
+        "name": "period",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "A named range instead of `from` and `to`, in UTC: `today`, `this_week` or `last_week` (weeks start on Monday), `this_month` or `last_month`. A current one ends now.",
+        "example": "last_month",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "today",
+            "this_week",
+            "last_week",
+            "this_month",
+            "last_month"
+          ],
+          "description": "A named range instead of `from` and `to`, in UTC: `today`, `this_week` or `last_week` (weeks start on Monday), `this_month` or `last_month`. A current one ends now."
         }
       },
       {
@@ -1493,7 +1630,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": false,
         "description": "The end of the range, in ISO 8601. Default: now.",
-        "example": "2026-10-31T00:00:00Z",
+        "example": "2026-11-01T00:00:00Z",
         "schema": {
           "type": "string",
           "format": "date-time",
@@ -1579,7 +1716,7 @@ export const OPERATIONS: readonly Operation[] = [
     "operationId": "usage.subjects",
     "method": "get",
     "path": "/usage/subjects",
-    "summary": "List who is using a limit now",
+    "summary": "List who is using a limit",
     "cli": {
       "command": "usage subjects",
       "args": [],
@@ -1594,18 +1731,92 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists a limit's subjects in its current window, most used first. Each one shows the units used, what's left and how many checks the limit refused. The amounts are exact, but a subject first checked in the last minute may not appear yet. For a `concurrent` limit, it lists the slots each subject holds now, among the subjects checked in the last hour.",
+    "description": "Lists a limit's subjects in its current window, most used first. Each one shows the units used, what's left and how many checks the limit refused. The amounts are exact, but a subject first checked in the last minute may not appear yet. For a `concurrent` limit, it lists the slots each subject holds now, among the subjects checked in the last hour. Name the limit by `limitId` or `limitName`. For a past range, send `period`, such as `last_month`, or `from` and `to`. The subjects are then ranked by their use in that range, from history. Each one's `remaining` is then null. Set `sort` to `refused` to list the most refused first. Usage older than your plan's history isn't returned.",
     "fields": [
       {
         "name": "limitId",
         "in": "query",
         "type": "string",
-        "required": true,
-        "description": "The limit's ID.",
+        "required": false,
+        "description": "The limit's ID. Send this or `limitName`.",
         "example": "lmt_6f1c2a9e-4b7d-4e3a-9c5f-8d2b1a0e7c34",
         "schema": {
           "type": "string",
-          "description": "The limit's ID."
+          "description": "The limit's ID. Send this or `limitName`."
+        }
+      },
+      {
+        "name": "limitName",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "The limit's name, instead of its ID. It matches an active limit in this environment, exactly or else ignoring case.",
+        "example": "AI budget",
+        "schema": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "The limit's name, instead of its ID. It matches an active limit in this environment, exactly or else ignoring case."
+        }
+      },
+      {
+        "name": "period",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "A named range instead of `from` and `to`, in UTC: `today`, `this_week` or `last_week` (weeks start on Monday), `this_month` or `last_month`. A current one ends now.",
+        "example": "last_month",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "today",
+            "this_week",
+            "last_week",
+            "this_month",
+            "last_month"
+          ],
+          "description": "A named range instead of `from` and `to`, in UTC: `today`, `this_week` or `last_week` (weeks start on Monday), `this_month` or `last_month`. A current one ends now."
+        }
+      },
+      {
+        "name": "from",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "The start of the range, in ISO 8601.",
+        "example": "2026-10-01T00:00:00Z",
+        "schema": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The start of the range, in ISO 8601."
+        }
+      },
+      {
+        "name": "to",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "The end of the range, in ISO 8601. Default: now.",
+        "example": "2026-11-01T00:00:00Z",
+        "schema": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The end of the range, in ISO 8601. Default: now."
+        }
+      },
+      {
+        "name": "sort",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "`used` lists the most used first, and `refused` the most refused first. Default: used.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "used",
+            "refused"
+          ],
+          "default": "used",
+          "description": "`used` lists the most used first, and `refused` the most refused first. Default: used."
         }
       },
       {
@@ -2192,7 +2403,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists one endpoint's delivery history, newest first. Each entry shows the event's status, attempts and last HTTP status. Payloads aren't included. We keep the history for 30 days. Paginate with the opaque `nextCursor`. `before` starts from a moment, and `status` keeps one kind of delivery. With a personal access token, only workspace owners can call this. A workspace API key with this scope can.",
+    "description": "Lists one endpoint's delivery history, newest first. Each entry shows the event's status, attempts and last HTTP status. Payloads aren't included. We keep the history for 30 days. Paginate with the opaque `nextCursor`. `before` starts from a moment, and `status` keeps one kind of delivery. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2290,7 +2501,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Sends a recorded delivery's event again, as a new delivery. The new delivery gets its own history entry. The event id stays the same, so receivers can deduplicate. Redelivery only works on an enabled endpoint. With a personal access token, only workspace owners can call this. A workspace API key with this scope can.",
+    "description": "Sends a recorded delivery's event again, as a new delivery. The new delivery gets its own history entry. The event id stays the same, so receivers can deduplicate. Redelivery only works on an enabled endpoint. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2336,7 +2547,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Changes where workspace data is sent. A person configures webhook endpoints (Settings → Developers in the app)."
     },
-    "description": "Registers an HTTPS URL to receive the workspace's events. Deliveries use the same signature format as Svix. The response includes the endpoint's signing secret (`whsec_…`). You see it only once, so store it to verify deliveries. The API refuses private hosts and hosts without HTTPS. A workspace can have at most 10 endpoints. With a personal access token, only workspace owners can call this. A workspace API key with this scope can.",
+    "description": "Registers an HTTPS URL to receive the workspace's events. Deliveries use the same signature format as Svix. The response includes the endpoint's signing secret (`whsec_…`). You see it only once, so store it to verify deliveries. The API refuses private hosts and hosts without HTTPS. A workspace can have at most 10 endpoints. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "url",
@@ -2404,7 +2615,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Changes where workspace data is sent. A person configures webhook endpoints (Settings → Developers in the app)."
     },
-    "description": "Deletes the endpoint and its signing secret. All deliveries to the endpoint stop. Its delivery history goes with it. With a personal access token, only workspace owners can call this. A workspace API key with this scope can.",
+    "description": "Deletes the endpoint and its signing secret. All deliveries to the endpoint stop. Its delivery history goes with it. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2440,7 +2651,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Changes where workspace data is sent. A person configures webhook endpoints (Settings → Developers in the app)."
     },
-    "description": "Resumes deliveries to an endpoint that stopped after repeated failures. The endpoint keeps its signing secret. Its failure count resets. With a personal access token, only workspace owners can call this. A workspace API key with this scope can.",
+    "description": "Resumes deliveries to an endpoint that stopped after repeated failures. The endpoint keeps its signing secret. Its failure count resets. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2481,7 +2692,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Returns one endpoint without its signing secret. It shows whether the endpoint is on, its consecutive failures and its last delivery status. With a personal access token, only workspace owners can call this. A workspace API key with this scope can.",
+    "description": "Returns one endpoint without its signing secret. It shows whether the endpoint is on, its consecutive failures and its last delivery status. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2520,7 +2731,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists the workspace's outgoing webhook endpoints, newest first. The list leaves out their signing secrets. A workspace has at most 10 endpoints, so the list is a single page. Its `nextCursor` is null. With a personal access token, only workspace owners can call this. A workspace API key with this scope can.",
+    "description": "Lists the workspace's outgoing webhook endpoints, newest first. The list leaves out their signing secrets. A workspace has at most 10 endpoints, so the list is a single page. Its `nextCursor` is null. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
     "fields": [],
     "hasBody": false,
     "workspace": true,
@@ -2548,7 +2759,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Sends a `ping` event to the endpoint, signed like every delivery. Use it to check that an integration verifies and accepts deliveries. With a personal access token, only workspace owners can call this. A workspace API key with this scope can.",
+    "description": "Sends a `ping` event to the endpoint, signed like every delivery. Use it to check that an integration verifies and accepts deliveries. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2584,7 +2795,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Changes where workspace data is sent. A person configures webhook endpoints (Settings → Developers in the app)."
     },
-    "description": "Changes an endpoint's URL, description or event types in place. Only the fields you send change. The endpoint keeps its signing secret, so receivers keep verifying deliveries. A new URL must pass the same checks as on create. It must use HTTPS and can't be a private host. With a personal access token, only workspace owners can call this. A workspace API key with this scope can.",
+    "description": "Changes an endpoint's URL, description or event types in place. Only the fields you send change. The endpoint keeps its signing secret, so receivers keep verifying deliveries. A new URL must pass the same checks as on create. It must use HTTPS and can't be a private host. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
