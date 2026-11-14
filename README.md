@@ -28,12 +28,12 @@ Commands act in **test** unless you say otherwise, so trying things
 never touches the limits your customers depend on.
 
 ```bash
-# 100 AI replies a day for each user ("100 replies per user per day for ai-call")
+# A $2 AI budget a month for each of your users ("200 cents per user per month for ai-call")
 limitry limits create --subject '{"kind":"user"}' --action ai-call \
-  --amount 100 --unit replies --window day
+  --amount 200 --unit cents --window month
 
-# Check a user, as your code would
-limitry check user:usr_123 ai-call
+# Check a user, as your code would, for a reply that costs 5 cents
+limitry check user:usr_123 ai-call --cost 5
 
 # Where a user stands, without counting anything
 limitry usage standing --subject user:usr_123

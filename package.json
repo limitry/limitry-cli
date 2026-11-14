@@ -1,7 +1,16 @@
 {
   "name": "@limitry/cli",
-  "version": "1.0.0-rc.14",
+  "version": "1.0.0-rc.15",
   "description": "Limitry command line",
+  "keywords": [
+    "usage-limits",
+    "rate-limiting",
+    "credits",
+    "budgets",
+    "quotas",
+    "cli",
+    "command-line-tool"
+  ],
   "type": "module",
   "bin": {
     "limitry": "./dist/limitry.mjs"
@@ -17,9 +26,9 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@limitry/sdk": "1.0.0-rc.14",
+    "@limitry/sdk": "1.0.0-rc.15",
     "@types/node": "26.6.6",
-    "commander": "15.0.0",
+    "commander": "15.1.0",
     "esbuild": "0.28.2",
     "typescript": "6.0.3",
     "vitest": "4.1.12"

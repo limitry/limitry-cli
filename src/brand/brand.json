@@ -5,20 +5,12 @@
   "productName": "Limitry",
   "legalName": "Omsome L.L.C-FZ",
   "releaseMirrors": true,
-  "mirrorProfile": {
-    "topics": [
-      "rate-limiting",
-      "usage-limits",
-      "credits",
-      "budgets",
-      "api-client",
-      "sdk"
-    ]
-  },
+  "keywords": ["usage-limits", "rate-limiting", "credits", "budgets", "quotas"],
   "domain": "limitry.com",
   "devDomain": "limitry.dev",
   "labs": ["lab"],
   "discordInvite": "https://discord.gg/Nb6QFd6ER4",
+  "profiles": { "x": "limitryhq", "github": "limitry" },
   "summary": "Limitry is the limits, credits and budgets layer for the software you build: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly request one call tells your code whether it may happen.",
   "expectedAssets": [
     "logo.svg",

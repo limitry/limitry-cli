@@ -426,7 +426,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Adding credits gives value away; an agent asks a person (limit.credit approval)"
     },
-    "description": "Adds `amount` credits to one subject's balance, on a limit whose window is `total`. A negative `amount` takes credits back, such as after a refund or a chargeback, and needs a `note` saying why. The balance can go below zero, and Limitry then refuses checks until you add more credits. Owners, admins and workspace API keys can add credits. An agent asks a person instead, through the `limit.credit` approval. Limitry keeps a credit's `Idempotency-Key` forever, so never reuse one for a new credit.",
+    "description": "Adds `amount` credits to one subject's balance, on a limit whose window is `total`. A negative `amount` takes credits back, such as after a refund or a chargeback, and needs a `note` saying why. The balance can go below zero, and Limitry then refuses checks until you add more credits. Owners, admins and workspace API keys can add credits. An agent connected through MCP asks a person instead, through the `limit.credit` approval. Limitry keeps a credit's `Idempotency-Key` forever, so never reuse one for a new credit.",
     "fields": [
       {
         "name": "limitId",
@@ -1446,7 +1446,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Returns every active limit's usage in one answer, for a question that names no limit. Each limit comes with its name, unit, amount and window, its `total` (units used, checks allowed and refused) and its top subjects. By default, it covers each limit's current window, with exact amounts. For a past range, send `period`, such as `last_month`, or `from` and `to`. The totals and subjects then come from history, and each subject's `remaining` is null. Set `sort` to `refused` to list only the subjects each limit refused, the most refused first. A balance also lists the credits added to it in the range. Usage older than your plan's history isn't returned.",
+    "description": "Returns every active limit's usage in one answer, for a question that names no limit. Each limit comes with its name, unit, amount and window, its `total` (units used, checks allowed and refused) and its top subjects. By default, it covers each limit's current window, with exact amounts. For a past range, send `period`, such as `last_month`, or `from` and `to`. The totals and subjects then come from history, and each subject's `remaining` is null. Set `sort` to `refused` to list only the subjects each limit refused, the most refused first. A balance also lists the credits added to it in the range. The current window is whole on every plan. A past range reaches no further back than your plan's history.",
     "fields": [
       {
         "name": "period",
@@ -1731,7 +1731,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists a limit's subjects in its current window, most used first. Each one shows the units used, what's left and how many checks the limit refused. The amounts are exact, but a subject first checked in the last minute may not appear yet. For a `concurrent` limit, it lists the slots each subject holds now, among the subjects checked in the last hour. Name the limit by `limitId` or `limitName`. For a past range, send `period`, such as `last_month`, or `from` and `to`. The subjects are then ranked by their use in that range, from history. Each one's `remaining` is then null. Set `sort` to `refused` to list the most refused first. Usage older than your plan's history isn't returned.",
+    "description": "Lists a limit's subjects in its current window, most used first. Each one shows the units used, what's left and how many checks the limit refused. The amounts are exact, but a subject first checked in the last minute may not appear yet. For a `concurrent` limit, it lists the slots each subject holds now, among the subjects checked in the last hour. Name the limit by `limitId` or `limitName`. For a past range, send `period`, such as `last_month`, or `from` and `to`. The subjects are then ranked by their use in that range, from history. Each one's `remaining` is then null. Set `sort` to `refused` to list the most refused first. The current window is whole on every plan. A past range reaches no further back than your plan's history.",
     "fields": [
       {
         "name": "limitId",
@@ -2375,7 +2375,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Returns what the workspace used this period, with one entry for each thing its plan counts. Each entry has the plan's limit, or null when there is no limit. A period is one month from the workspace's billing date. That date comes from its subscription or, without one, from the day you created the workspace. On an annual plan, the counts still reset every month from the subscription's start.",
+    "description": "Returns what the workspace used this period, with one entry for each thing its plan counts. Each entry has the plan's limit, or null when there is no limit. Each entry also says where it stands and where we start refusing new use. A period is one month from the workspace's billing date. That date comes from its subscription or, without one, from the day you created the workspace. On an annual plan, the counts still reset every month from the subscription's start.",
     "fields": [],
     "hasBody": false,
     "workspace": true,
