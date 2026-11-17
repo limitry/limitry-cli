@@ -2,6 +2,10 @@
 
 The Limitry CLI sets up your limits and checks them from a terminal, a script or an agent: create a limit, try a check, and see who is using what, in test before live.
 
+[![A $2 AI budget for one of your users: three calls are charged, and the next is refused before the AI runs.](https://media.limitry.com/launch/readme-20261117-1555.gif)](https://limitry.com/#demo)
+
+[▶ Watch the 45-second demo](https://limitry.com/#demo)
+
 Limitry is the limits, credits and budgets layer for the software you build: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly request one call tells your code whether it may happen.
 
 ## Install

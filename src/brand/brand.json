@@ -9,6 +9,7 @@
   "domain": "limitry.com",
   "devDomain": "limitry.dev",
   "labs": ["lab"],
+  "statusPage": true,
   "discordInvite": "https://discord.gg/Nb6QFd6ER4",
   "profiles": { "x": "limitryhq", "github": "limitry" },
   "summary": "Limitry is the limits, credits and budgets layer for the software you build: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly request one call tells your code whether it may happen.",
