@@ -11,6 +11,10 @@
   "labs": ["lab"],
   "statusPage": true,
   "discordInvite": "https://discord.gg/Nb6QFd6ER4",
+  "shortLinks": {
+    "/linkedin": { "source": "linkedin", "medium": "social" },
+    "/youtube": { "source": "youtube", "medium": "video" }
+  },
   "profiles": { "x": "limitryhq", "github": "limitry" },
   "summary": "Limitry is the limits, credits and budgets layer for the software you build: give each of your users, teams, tenants, API keys or agents an allowance, and before any costly request one call tells your code whether it may happen.",
   "expectedAssets": [
@@ -90,7 +94,12 @@
     "emailSignUp": "button"
   },
   "devPortOffset": 100,
+  "appShortcuts": [
+    { "name": "Usage", "url": "/usage" },
+    { "name": "Limits", "url": "/limits" }
+  ],
   "social": {
     "background": "#F6F8FB"
-  }
+  },
+  "tagline": "Limits, credits and budgets for the software you build"
 }

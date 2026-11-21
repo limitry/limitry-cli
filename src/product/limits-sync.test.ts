@@ -67,23 +67,20 @@ const plan = {
 describe("limits sync", () => {
   it("sends the file's limits with an API key, and prints what it would do", async () => {
     const t = terminal(KEY, plan);
+    const path = file({ limits: [budget] });
     const code = await run(
-      [
-        "limits",
-        "sync",
-        file({ limits: [budget] }),
-        "--preview",
-        "--archive-missing",
-      ],
+      ["limits", "sync", path, "--preview", "--archive-missing"],
       t.io,
     );
     expect(code).toBe(0);
     expect(t.calls).toHaveLength(1);
     expect(t.calls[0].path).toBe("/v1/limits/sync");
+    // The file's name as passed is the source the app's lock names.
     expect(t.calls[0].body).toEqual({
       limits: [budget],
       archiveMissing: true,
       preview: true,
+      source: path,
     });
     // A key is its workspace: no X-Workspace, and none needed.
     expect(t.calls[0].headers.get("x-workspace")).toBeNull();
@@ -96,6 +93,29 @@ describe("limits sync", () => {
       "Preview: nothing was changed.",
     ]);
     expect(t.err).toEqual(["Environment: live"]);
+  });
+
+  it("sends the file's kinds too, in order, and says when they'd change", async () => {
+    const t = terminal(KEY, { ...plan, kinds: { changed: true } });
+    const kinds = [
+      { kind: "account" },
+      {
+        kind: "cost-center",
+        displayName: "Cost center",
+        plural: "Cost centers",
+      },
+    ];
+    const path = file({ limits: [budget], kinds });
+    const code = await run(["limits", "sync", path, "--preview"], t.io);
+    expect(code).toBe(0);
+    expect(t.calls[0].body).toEqual({
+      limits: [budget],
+      archiveMissing: false,
+      preview: true,
+      kinds,
+      source: path,
+    });
+    expect(t.out).toContain("Would update the kinds.");
   });
 
   it("takes the whole body as --data, as every command does", async () => {
@@ -139,6 +159,7 @@ describe("limits sync", () => {
       limits: [],
       archiveMissing: false,
       preview: false,
+      source: "limitry.json",
     });
     expect(JSON.parse(t.out.join("\n"))).toEqual(applied);
 
@@ -220,6 +241,34 @@ describe("limits sync", () => {
         `sync \\[options\\] \\[file\\]\\s+Short for \`${brand.name} limits sync\``,
       ),
     );
+  });
+
+  it("sends --source, or --data's source, over the file's name; none without a file", async () => {
+    const flag = terminal(KEY, plan);
+    await run(
+      [
+        "sync",
+        file({ limits: [budget] }),
+        "--source",
+        "Reminix deploy",
+        "--preview",
+      ],
+      flag.io,
+    );
+    expect(flag.calls[0].body).toMatchObject({ source: "Reminix deploy" });
+    const data = terminal(KEY, plan);
+    await run(
+      [
+        "sync",
+        "--data",
+        JSON.stringify({ limits: [budget], source: "Plans build" }),
+      ],
+      data.io,
+    );
+    expect(data.calls[0].body).toMatchObject({ source: "Plans build" });
+    const none = terminal(KEY, plan);
+    await run(["sync", "--limits", JSON.stringify([budget])], none.io);
+    expect(none.calls[0].body).not.toHaveProperty("source");
   });
 
   it("takes the list as --limits instead of a file, as the API reference shows", async () => {

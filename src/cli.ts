@@ -11,12 +11,13 @@ import { Command as Commander, CommanderError } from "commander";
 import { platformCommands } from "./commands.ts";
 import { environmentEnvVar, resolveSettings, type Settings } from "./config.ts";
 import { generatedCommands } from "./generated.ts";
+import * as product from "./product/index.ts";
 import { productCommands } from "./product/index.ts";
 
 /**
  * The product's command-line client — a person talking to the public API
  * with a personal access token (docs/architecture.md "Personal access
- * tokens"). commander parses; @repo/sdk (generated from the /v1 routes)
+ * tokens"). commander parses; @repo/typescript-sdk (generated from the /v1 routes)
  * makes the calls. The binary is named after the product (brand.json
  * `name`); everything it prints reads identity from @repo/brand.
  *
@@ -64,14 +65,14 @@ export type CliContext = {
     /** Sent as X-Environment when set (`--environment` / <NAME>_ENVIRONMENT / config). */
     environment: string | undefined;
   };
-  /** A typed API client over those credentials (see @repo/sdk). */
+  /** A typed API client over those credentials (see @repo/typescript-sdk). */
   client: (options?: { workspace?: string | false }) => Client;
   /**
    * `io.fetch`, noting the environment each answer names — a command that
    * calls the API without `client()` uses this, so its output names it too.
    * Every write gets an Idempotency-Key (from `--idempotency-key` when
    * given, one per write otherwise) and a failed attempt is retried with
-   * the same key (@repo/sdk withRetries), so a command never does a write
+   * the same key (@repo/typescript-sdk withRetries), so a command never does a write
    * twice — nor does running it again with the same `--idempotency-key`.
    */
   fetch: (request: Request) => Promise<Response>;
@@ -231,10 +232,29 @@ export async function run(argv: string[], io: Io): Promise<number> {
     if (error instanceof ApiError) {
       const requestId = error.requestId ? ` [request ${error.requestId}]` : "";
       io.stderr(`${brand.name}: ${error.message} (${error.code})${requestId}`);
+      const hint = scopeHint(error);
+      if (hint) io.stderr(hint);
     } else {
       io.stderr(`${brand.name}: ${(error as Error).message}`);
     }
     if (environment) io.stderr(`Environment: ${environment}`);
     return 1;
   }
+}
+
+/**
+ * How to fix a refusal for a missing permission (owner, 2026-11-20: a
+ * new person's `publish` failed after a Read only sign-in, and nothing
+ * said what to do). A product's own wording first, from an optional
+ * `productErrorHint(error)` in ./product/index.ts, naming its quick
+ * choice ("…choose Publish and run scripts."); else the general one.
+ */
+export function scopeHint(error: ApiError): string | null {
+  const own = Reflect.get(product, "productErrorHint") as
+    ((error: ApiError) => string | null | undefined) | undefined;
+  const mine = own?.(error);
+  if (mine) return mine;
+  const scope = /not granted the ([\w.:-]+) scope/.exec(error.message)?.[1];
+  if (error.code !== "forbidden" || !scope) return null;
+  return `Sign in again with \`${brand.name} login\` and choose access that includes ${scope}.`;
 }

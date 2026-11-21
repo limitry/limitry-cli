@@ -15,7 +15,7 @@ import { json, table } from "./output.ts";
 
 /**
  * A command for EVERY /v1 operation, built from the operation table
- * (@repo/sdk/operations — generated from the OpenAPI document at build,
+ * (@repo/typescript-sdk/operations — generated from the OpenAPI document at build,
  * deterministic, never by a model). `audit-events list`,
  * `webhook-endpoints create --url …`: path parameters are positional
  * arguments, query and body fields are flags (`--data '{…}'` for a whole
@@ -239,6 +239,7 @@ async function call(
       error?.code ?? "internal_error",
       error?.message ?? `HTTP ${response.status}`,
       error?.requestId,
+      response.headers,
     );
   }
   return data;

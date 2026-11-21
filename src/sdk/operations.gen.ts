@@ -163,6 +163,89 @@ export const OPERATIONS: readonly Operation[] = [
     "scope": "checks:write"
   },
   {
+    "operationId": "checks.recent",
+    "method": "get",
+    "path": "/checks/recent",
+    "summary": "List recent checks",
+    "cli": {
+      "command": "checks recent",
+      "args": [],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "checks_recent",
+      "hints": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    "description": "Lists the checks of the last 3 days, newest first, with every subject each one named and whether Limitry allowed it. A refused check says whose budget refused it. Name a `subject` as `kind:id` for only the checks that named it, or set `refused` for only refused ones. Limitry keeps the last 3 days, and at most 100,000 checks in each environment. Results come a page at a time.",
+    "fields": [
+      {
+        "name": "subject",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "Only checks that named this subject, as `kind:id`.",
+        "example": "user:usr_123",
+        "schema": {
+          "type": "string",
+          "maxLength": 301,
+          "description": "Only checks that named this subject, as `kind:id`."
+        }
+      },
+      {
+        "name": "refused",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "`true` for only refused checks.",
+        "example": "true",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "description": "`true` for only refused checks."
+        }
+      },
+      {
+        "name": "limit",
+        "in": "query",
+        "type": "number",
+        "required": false,
+        "description": "How many to return, from 1 to 100. Default: 25.",
+        "example": 25,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "description": "How many to return, from 1 to 100. Default: 25."
+        }
+      },
+      {
+        "name": "cursor",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "The `nextCursor` of the page before.",
+        "schema": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "The `nextCursor` of the page before."
+        }
+      }
+    ],
+    "hasBody": false,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "limits:read"
+  },
+  {
     "operationId": "limits.archive",
     "method": "post",
     "path": "/limits/{limitId}/archive",
@@ -792,7 +875,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Makes the environment's limits match the list in `limits`, pairing them up by name. It creates the limits that are missing and changes the ones that differ, where an omitted field means its default. With `archiveMissing`, it also archives the active limits the list doesn't name. Running it twice changes nothing the second time. Limitry checks the whole list before writing anything. If any entry has a problem, nothing changes, and the 400 lists each problem in `details`. Otherwise Limitry writes every change at once. You can't change a limit's subject, action, unit, window, every, start or rolling under the same name, so rename the entry to do that. With `preview`, it returns what it would do without writing anything. This is the call behind `limitry sync`, for keeping your limits in a file in your repository. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Makes the environment's limits match the list in `limits`, pairing them up by name. It creates the limits that are missing and changes the ones that differ, where an omitted field means its default. With `archiveMissing`, it also archives the active limits the list doesn't name. Running it twice changes nothing the second time. Limitry checks the whole list before writing anything. If any entry has a problem, nothing changes, and the 400 lists each problem in `details`. Otherwise Limitry writes every change at once. You can't change a limit's subject, action, unit, window, every, start or rolling under the same name, so rename the entry to do that. With `preview`, it returns what it would do without writing anything. What a sync sets is locked in the app until the next sync, which names its `source`. This is the call behind `limitry sync`, for keeping your limits in a file in your repository. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "limits",
@@ -861,6 +944,64 @@ export const OPERATIONS: readonly Operation[] = [
           "type": "boolean",
           "description": "Whether to report what the sync would do without changing anything. Default: false."
         }
+      },
+      {
+        "name": "source",
+        "in": "body",
+        "type": "string",
+        "required": false,
+        "description": "Where these limits come from, such as the file's name or your deploy's. The app and the 409 name it on every limit the sync sets, as in \"Set by limitry.json\". The CLI sends the file's name. Default: `a sync`.",
+        "example": "limitry.json",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Where these limits come from, such as the file's name or your deploy's. The app and the 409 name it on every limit the sync sets, as in \"Set by limitry.json\". The CLI sends the file's name. Default: `a sync`."
+        }
+      },
+      {
+        "name": "kinds",
+        "in": "body",
+        "type": "json",
+        "required": false,
+        "description": "The workspace's kinds, from the top level down: how the app names each and the order its subject pages use for Above and Below. They replace the workspace's kinds, for test and live alike, so only owners and admins (or a workspace key) can send them. Leave this out to leave the kinds alone. Labels only: checks and the API keep using the kinds themselves.",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "description": "The kind, as your checks send it."
+              },
+              "displayName": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 60,
+                "description": "How the app names it. Default: the kind, starting with a capital letter."
+              },
+              "plural": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 60,
+                "description": "Its plural in the app. Default: one made from the name."
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "maxItems": 100,
+          "description": "The workspace's kinds, from the top level down: how the app names each and the order its subject pages use for Above and Below. They replace the workspace's kinds, for test and live alike, so only owners and admins (or a workspace key) can send them. Leave this out to leave the kinds alone. Labels only: checks and the API keep using the kinds themselves."
+        }
       }
     ],
     "hasBody": true,
@@ -889,7 +1030,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Changes a limit's name, amount, fail mode or whether it's enabled. Checks use the new rule at once. You can't change a limit's subject, action, unit, window, every, start or rolling, and a request that tries gets a 400. To count something different, create a new limit and archive this one. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Changes a limit's name, amount, fail mode or whether it's enabled. Checks use the new rule at once. You can't change a limit's subject, action, unit, window, every, start or rolling, and a request that tries gets a 400. To count something different, create a new limit and archive this one. A limit a sync sets (its `setIn`) changes only through the sync. A request to change one gets a 409 that names where the sync came from, unless it sends `override` with a reason. An override lasts until the next sync. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "limitId",
@@ -1074,6 +1215,31 @@ export const OPERATIONS: readonly Operation[] = [
           "type": "boolean",
           "description": "Whether the limit counts the last windows up to each check. You set it when you create the limit. To change it later, create a new limit and archive this one."
         }
+      },
+      {
+        "name": "override",
+        "in": "body",
+        "type": "json",
+        "required": false,
+        "description": "Changes a limit a sync sets, until the next sync puts its values back. Only owners and admins, or a workspace API key, can override. Without it, changing such a limit gets a 409. You can't rename it, because the sync finds it by name.",
+        "example": {
+          "reason": "Support incident: raised for a customer"
+        },
+        "schema": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "description": "Why, for the audit log and the limit's page."
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "description": "Changes a limit a sync sets, until the next sync puts its values back. Only owners and admins, or a workspace API key, can override. Without it, changing such a limit gets a 409. You can't rename it, because the sync finds it by name."
+        }
       }
     ],
     "hasBody": true,
@@ -1229,28 +1395,28 @@ export const OPERATIONS: readonly Operation[] = [
     "scope": "checks:write"
   },
   {
-    "operationId": "subjects.get",
-    "method": "get",
+    "operationId": "subjects.delete",
+    "method": "delete",
     "path": "/subjects/{subjectKind}/{subjectId}",
-    "summary": "Get a subject",
+    "summary": "Erase a subject's name and labels",
     "cli": {
-      "command": "subjects get",
+      "command": "subjects delete",
       "args": [
         "subjectKind",
         "subjectId"
       ],
-      "confirm": false
+      "confirm": true
     },
     "mcp": {
       "exposed": true,
-      "name": "subjects_get",
+      "name": "subjects_delete",
       "hints": {
-        "readOnlyHint": true,
-        "destructiveHint": false,
+        "readOnlyHint": false,
+        "destructiveHint": true,
         "idempotentHint": true
       }
     },
-    "description": "Returns a subject's billing date, the day its `billing_date` limits start each new period. A subject is one of yours, such as a user, a team or an agent. It exists once a check names it.",
+    "description": "Erases the name and labels you gave a subject. Its limits, usage and billing date stay, because they're kept by its ID. Use it when one of your users asks you to delete their data. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "subjectKind",
@@ -1278,6 +1444,247 @@ export const OPERATIONS: readonly Operation[] = [
           "minLength": 1,
           "maxLength": 200,
           "description": "The subject's ID."
+        }
+      }
+    ],
+    "hasBody": false,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "limits:write"
+  },
+  {
+    "operationId": "subjects.get",
+    "method": "get",
+    "path": "/subjects/{subjectKind}/{subjectId}",
+    "summary": "Get a subject",
+    "cli": {
+      "command": "subjects get",
+      "args": [
+        "subjectKind",
+        "subjectId"
+      ],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "subjects_get",
+      "hints": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    "description": "Returns a subject: its billing date, the day its `billing_date` limits start each new period, its name and labels if you gave it any, its budgets, and the subjects it's checked with. A subject is one of yours, such as a user, a team or an agent. It exists once a check names it. Its links say what was spent within each budget this period: within another subject's budget, or another subject within its own.",
+    "fields": [
+      {
+        "name": "subjectKind",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The subject kind's ID.",
+        "example": "team",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The subject kind's ID."
+        }
+      },
+      {
+        "name": "subjectId",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The subject's ID.",
+        "example": "team_42",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The subject's ID."
+        }
+      }
+    ],
+    "hasBody": false,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "limits:read"
+  },
+  {
+    "operationId": "subjects.import",
+    "method": "post",
+    "path": "/subjects/import",
+    "summary": "Name many subjects",
+    "cli": {
+      "command": "subjects import",
+      "args": [],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "subjects_import",
+      "hints": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false
+      }
+    },
+    "description": "Sets the name and labels of up to 1,000 subjects at once, such as when you first connect your user list. Each item works like updating that subject's name and labels: a field you leave out stays as it is, and null clears it. Limitry checks every item before it saves any, so a bad item saves nothing. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "fields": [
+      {
+        "name": "items",
+        "in": "body",
+        "type": "json",
+        "required": true,
+        "description": "The subjects to name, from 1 to 1,000: each its kind and ID, and its name, its labels or both.",
+        "example": [
+          {
+            "kind": "team",
+            "id": "team_42",
+            "name": "Design team",
+            "labels": {
+              "plan": "pro"
+            }
+          }
+        ],
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "A name people can read, up to 200 characters. Optional. Names don't have to be unique. Send null to clear it."
+              },
+              "labels": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "description": "Labels to filter by, such as a plan or a region: up to 20 keys of up to 40 characters, with values of up to 200. Optional. They replace the subject's labels. Send null to clear them."
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 1000,
+          "description": "The subjects to name, from 1 to 1,000: each its kind and ID, and its name, its labels or both."
+        }
+      }
+    ],
+    "hasBody": true,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "limits:write"
+  },
+  {
+    "operationId": "subjects.list",
+    "method": "get",
+    "path": "/subjects",
+    "summary": "List subjects",
+    "cli": {
+      "command": "subjects list",
+      "args": [],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "subjects_list",
+      "hints": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    "description": "Lists every subject your checks have named in this environment, and every one you named, most recently checked first. Filter by `kind` or by one `label`, and search the name or the ID with `q`. Results come a page at a time.",
+    "fields": [
+      {
+        "name": "kind",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "Only subjects of this kind.",
+        "example": "team",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Only subjects of this kind."
+        }
+      },
+      {
+        "name": "label",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "Only subjects with this label, as `key:value`.",
+        "example": "plan:pro",
+        "schema": {
+          "type": "string",
+          "maxLength": 250,
+          "description": "Only subjects with this label, as `key:value`."
+        }
+      },
+      {
+        "name": "q",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "Only subjects whose name or ID contains this text, in any case.",
+        "example": "design",
+        "schema": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Only subjects whose name or ID contains this text, in any case."
+        }
+      },
+      {
+        "name": "limit",
+        "in": "query",
+        "type": "number",
+        "required": false,
+        "description": "How many to return, from 1 to 100. Default: 25.",
+        "example": 25,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "description": "How many to return, from 1 to 100. Default: 25."
+        }
+      },
+      {
+        "name": "cursor",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "The `nextCursor` of the page before.",
+        "schema": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "The `nextCursor` of the page before."
         }
       }
     ],
@@ -1348,6 +1755,102 @@ export const OPERATIONS: readonly Operation[] = [
         "schema": {
           "type": "string",
           "description": "The one limit to reset. Default: every limit on the subject."
+        }
+      }
+    ],
+    "hasBody": true,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "limits:write"
+  },
+  {
+    "operationId": "subjects.set",
+    "method": "put",
+    "path": "/subjects/{subjectKind}/{subjectId}/names",
+    "summary": "Name a subject",
+    "cli": {
+      "command": "subjects set",
+      "args": [
+        "subjectKind",
+        "subjectId"
+      ],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "subjects_set",
+      "hints": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    "description": "Sets a subject's name, its labels, or both. Both are optional, and checks never need them. A field you leave out stays as it is, and null clears it. Labels you send replace the subject's labels. `DELETE /v1/subjects/{subjectKind}/{subjectId}` erases them. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "fields": [
+      {
+        "name": "subjectKind",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The subject kind's ID.",
+        "example": "team",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The subject kind's ID."
+        }
+      },
+      {
+        "name": "subjectId",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The subject's ID.",
+        "example": "team_42",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The subject's ID."
+        }
+      },
+      {
+        "name": "name",
+        "in": "body",
+        "type": "string",
+        "required": false,
+        "description": "A name people can read, up to 200 characters. Optional. Names don't have to be unique. Send null to clear it.",
+        "example": "Design team",
+        "schema": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "A name people can read, up to 200 characters. Optional. Names don't have to be unique. Send null to clear it."
+        }
+      },
+      {
+        "name": "labels",
+        "in": "body",
+        "type": "json",
+        "required": false,
+        "description": "Labels to filter by, such as a plan or a region: up to 20 keys of up to 40 characters, with values of up to 200. Optional. They replace the subject's labels. Send null to clear them.",
+        "example": {
+          "plan": "pro"
+        },
+        "schema": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "description": "Labels to filter by, such as a plan or a region: up to 20 keys of up to 40 characters, with values of up to 200. Optional. They replace the subject's labels. Send null to clear them."
         }
       }
     ],
@@ -2072,7 +2575,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists the workspace's audit events, newest first. Paginate with the opaque `nextCursor` token. `limit` takes 1 to 100 and defaults to 25. `before` starts from a moment. `action` keeps one kind of event, and `actor` what one person, key or token did. With a personal access token, only workspace owners can call this, as with the audit page in the app. A workspace API key always can, because it acts as the workspace itself.",
+    "description": "Lists the workspace's audit events, newest first. Paginate with the opaque `nextCursor` token. `limit` takes 1 to 100 and defaults to 25. `before` starts from a moment. `action` keeps one kind of event, and `actor` what one person, key or token did. With a personal access token, only workspace owners and admins can call this, as with the audit page in the app. A workspace API key always can, because it acts as the workspace itself.",
     "fields": [
       {
         "name": "limit",
@@ -2403,7 +2906,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists one endpoint's delivery history, newest first. Each entry shows the event's status, attempts and last HTTP status. Payloads aren't included. We keep the history for 30 days. Paginate with the opaque `nextCursor`. `before` starts from a moment, and `status` keeps one kind of delivery. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
+    "description": "Lists one endpoint's delivery history, newest first. Each entry shows the event's status, attempts and last HTTP status. Payloads aren't included. We keep the history for 30 days. Paginate with the opaque `nextCursor`. `before` starts from a moment, and `status` keeps one kind of delivery. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2501,7 +3004,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Sends a recorded delivery's event again, as a new delivery. The new delivery gets its own history entry. The event id stays the same, so receivers can deduplicate. Redelivery only works on an enabled endpoint. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
+    "description": "Sends a recorded delivery's event again, as a new delivery. The new delivery gets its own history entry. The event id stays the same, so receivers can deduplicate. Redelivery only works on an enabled endpoint. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2547,7 +3050,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Changes where workspace data is sent. A person configures webhook endpoints (Settings → Developers in the app)."
     },
-    "description": "Registers an HTTPS URL to receive the workspace's events. Deliveries use the same signature format as Svix. The response includes the endpoint's signing secret (`whsec_…`). You see it only once, so store it to verify deliveries. The API refuses private hosts and hosts without HTTPS. A workspace can have at most 10 endpoints. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
+    "description": "Registers an HTTPS URL to receive the workspace's events. Deliveries use the same signature format as Svix. The response includes the endpoint's signing secret (`whsec_…`). You see it only once, so store it to verify deliveries. The API refuses private hosts and hosts without HTTPS. A workspace can have at most 10 endpoints. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "url",
@@ -2615,7 +3118,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Changes where workspace data is sent. A person configures webhook endpoints (Settings → Developers in the app)."
     },
-    "description": "Deletes the endpoint and its signing secret. All deliveries to the endpoint stop. Its delivery history goes with it. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
+    "description": "Deletes the endpoint and its signing secret. All deliveries to the endpoint stop. Its delivery history goes with it. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2651,7 +3154,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Changes where workspace data is sent. A person configures webhook endpoints (Settings → Developers in the app)."
     },
-    "description": "Resumes deliveries to an endpoint that stopped after repeated failures. The endpoint keeps its signing secret. Its failure count resets. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
+    "description": "Resumes deliveries to an endpoint that stopped after repeated failures. The endpoint keeps its signing secret. Its failure count resets. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2692,7 +3195,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Returns one endpoint without its signing secret. It shows whether the endpoint is on, its consecutive failures and its last delivery status. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
+    "description": "Returns one endpoint without its signing secret. It shows whether the endpoint is on, its consecutive failures and its last delivery status. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2731,7 +3234,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists the workspace's outgoing webhook endpoints, newest first. The list leaves out their signing secrets. A workspace has at most 10 endpoints, so the list is a single page. Its `nextCursor` is null. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
+    "description": "Lists the workspace's outgoing webhook endpoints, newest first. The list leaves out their signing secrets. A workspace has at most 10 endpoints, so the list is a single page. Its `nextCursor` is null. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [],
     "hasBody": false,
     "workspace": true,
@@ -2759,7 +3262,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Sends a `ping` event to the endpoint, signed like every delivery. Use it to check that an integration verifies and accepts deliveries. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
+    "description": "Sends a `ping` event to the endpoint, signed like every delivery. Use it to check that an integration verifies and accepts deliveries. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2795,7 +3298,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Changes where workspace data is sent. A person configures webhook endpoints (Settings → Developers in the app)."
     },
-    "description": "Changes an endpoint's URL, description or event types in place. Only the fields you send change. The endpoint keeps its signing secret, so receivers keep verifying deliveries. A new URL must pass the same checks as on create. It must use HTTPS and can't be a private host. With a personal access token, only the workspace owner can call this. So can an admin in a Developer seat. A workspace API key with this scope can.",
+    "description": "Changes an endpoint's URL, description or event types in place. Only the fields you send change. The endpoint keeps its signing secret, so receivers keep verifying deliveries. A new URL must pass the same checks as on create. It must use HTTPS and can't be a private host. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",

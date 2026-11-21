@@ -69,7 +69,7 @@ export type Settings = {
   environmentSource: "flag" | "env" | "config" | null;
 };
 
-/** Effective settings: flag over shell variable over file over defaults (the API origin from @repo/sdk). */
+/** Effective settings: flag over shell variable over file over defaults (the API origin from @repo/typescript-sdk). */
 export function resolveSettings(
   env: Record<string, string | undefined>,
   homeDir: string,

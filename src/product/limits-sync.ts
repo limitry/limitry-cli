@@ -67,13 +67,19 @@ function syncCommand(
       "--archive-missing",
       "archive active limits the file doesn't name (restorable)",
     )
+    .option(
+      "--source <label>",
+      "where the limits come from, named on each one in the app (default: the file's name)",
+    )
     .option("--workspace <slug>", "act in this workspace for one call")
     .option("--json", "machine-readable output")
     .addHelpText(
       "after",
       '\nThe file: { "limits": [ { "name": "AI budget", "subject": { "kind": "user" }, "action": "ai-call", "amount": 200, "unit": "cents", "window": "month" } ] }' +
+        '\nOptional: "kinds": [ { "kind": "cost-center", "displayName": "Cost center", "plural": "Cost centers" } ], top level first, names your kinds in the app.' +
         "\nEach limit is described whole: a field left out is its default, as on `limits create`. Names are the key." +
         "\nWhat a limit counts (subject, action, unit, window, every, start, rolling) is fixed: to change it, give the entry a new name." +
+        "\nWhat the sync sets is locked in the app, which names the file (or --source) on each limit." +
         more,
     )
     .action(
@@ -84,18 +90,36 @@ function syncCommand(
           limits?: string;
           data?: string;
           archiveMissing?: boolean;
+          source?: string;
           workspace?: string;
           json?: boolean;
         },
       ) => {
         // --data is the request itself; the flags still apply over it.
         const data = options.data === undefined ? {} : parseData(options.data);
+        // The file is read only when no flag gives the limits.
+        const fromFile =
+          options.limits === undefined && data.limits === undefined
+            ? readSyncFile(file)
+            : null;
         const limits =
           options.limits !== undefined
             ? parseLimits(options.limits, "--limits")
             : data.limits !== undefined
               ? limitsIn(data.limits)
-              : readLimitsFile(file);
+              : fromFile!.limits;
+        // The workspace's kinds, when the file (or --data) names them.
+        const kinds =
+          data.kinds !== undefined
+            ? (data.kinds as KindInput[])
+            : fromFile?.kinds;
+        // Where the limits come from, which the app's lock names: the
+        // file's name as passed, unless a flag or --data says (owner,
+        // 2026-11-22).
+        const source =
+          options.source ??
+          (typeof data.source === "string" ? data.source : undefined) ??
+          (fromFile ? file : undefined);
         const result = await ctx
           .client({ workspace: options.workspace })
           .limits.sync(
@@ -104,6 +128,8 @@ function syncCommand(
               archiveMissing:
                 options.archiveMissing ?? data.archiveMissing === true,
               preview: options.preview ?? data.preview === true,
+              ...(kinds !== undefined ? { kinds } : {}),
+              ...(source !== undefined ? { source } : {}),
             },
             { idempotencyKey: crypto.randomUUID() },
           );
@@ -117,10 +143,22 @@ function syncCommand(
 }
 
 type LimitInput = Schemas["LimitSyncEntry"];
+type KindInput = NonNullable<Schemas["LimitSyncInput"]["kinds"]>[number];
 type SyncResult = Schemas["LimitSyncResult"];
 
 /** The file's limits, or an error saying what's wrong with the file. */
 export function readLimitsFile(file: string): LimitInput[] {
+  return readSyncFile(file).limits;
+}
+
+/**
+ * The file's limits and, when it has them, its kinds (`"kinds": [ … ]`,
+ * top level first; docs/limitry-json).
+ */
+export function readSyncFile(file: string): {
+  limits: LimitInput[];
+  kinds?: KindInput[];
+} {
   const path = resolve(file);
   let text: string;
   try {
@@ -136,11 +174,17 @@ export function readLimitsFile(file: string): LimitInput[] {
       cause: error,
     });
   }
-  const limits = (parsed as { limits?: unknown } | null)?.limits;
-  if (!Array.isArray(limits)) {
+  const body = parsed as { limits?: unknown; kinds?: unknown } | null;
+  if (!Array.isArray(body?.limits)) {
     throw new Error(`${file}: expected { "limits": [ … ] }`);
   }
-  return limits as LimitInput[];
+  if (body.kinds !== undefined && !Array.isArray(body.kinds)) {
+    throw new Error(`${file}: "kinds" must be a list, top level first`);
+  }
+  return {
+    limits: body.limits as LimitInput[],
+    ...(body.kinds !== undefined ? { kinds: body.kinds as KindInput[] } : {}),
+  };
 }
 
 /** `--limits '[…]'`: the list itself, as the API reference shows it. */
@@ -200,6 +244,19 @@ export function summary(result: SyncResult): string[] {
       (name) => `${dry ? "Would archive" : "Archived"}: ${name}`,
     ),
   ];
+  // Overrides made in the app that this sync ends (their overriders hear).
+  for (const r of result.restored ?? [])
+    lines.push(
+      `${dry ? "Would restore" : "Restored"} the file's values over an override: ${r.name} (${r.reason})`,
+    );
+  if (result.kinds?.restored)
+    lines.push(
+      dry
+        ? "Would restore the kinds over an override."
+        : "Restored the kinds over an override.",
+    );
+  if (result.kinds?.changed)
+    lines.push(dry ? "Would update the kinds." : "Updated the kinds.");
   const same = result.unchanged.length;
   if (lines.length === 0) {
     return [
