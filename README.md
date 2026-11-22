@@ -2,7 +2,7 @@
 
 The Limitry CLI sets up your limits and checks them from a terminal, a script or an agent: create a limit, try a check, and see who is using what, in test before live.
 
-[![A $2 AI budget for one of your users: three calls are charged, and the next is refused before the AI runs.](https://media.limitry.com/launch/readme-20261117-1555.gif)](https://limitry.com/#demo)
+[![A $2 AI budget for one of your users: three calls are charged, and the next is refused before the AI runs.](https://media.limitry.com/launch/readme-20261122-0258.gif)](https://limitry.com/#demo)
 
 [▶ Watch the 44-second demo](https://limitry.com/#demo)
 
@@ -37,10 +37,10 @@ limitry limits create --subject '{"kind":"user"}' --action ai-call \
   --amount 200 --unit cents --window month
 
 # Check a user, as your code would, for a reply that costs 5 cents
-limitry check user:usr_123 ai-call --cost 5
+limitry check user:user_123 ai-call --cost 5
 
 # Where a user stands, without counting anything
-limitry usage standing --subject user:usr_123
+limitry subjects standing user user_123
 ```
 
 When a limit is right, copy it to live from the **Limits** page in the
@@ -51,6 +51,10 @@ app, or create it with `--environment live`.
 Every API operation is a command: `limitry --help` lists them, and any
 command takes `--json` for the API's exact answer, for scripts and
 agents.
+
+The exit code says how a command ended: `0` success, `1` a failure, `2`
+a wrong command or flag, and `4` when you aren't signed in. A refused
+`limitry check` exits `5`, so a script can stop on it.
 
 ## Links
 

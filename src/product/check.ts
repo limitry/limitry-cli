@@ -2,21 +2,37 @@ import { brand } from "../brand/index.ts";
 import type { Schemas } from "@limitry/sdk";
 
 import type { Command } from "../cli.ts";
+import { UsageError } from "../errors.ts";
 import { json } from "../output.ts";
+
+/**
+ * A refused check's exit code: Limitry's own, from 5 up (../errors.ts),
+ * so a script can gate on it: `limitry check user:u_1 ai-call && run`.
+ */
+export const EXIT_REFUSED = 5;
+
+/** The check was answered, and refused (exit code 5). */
+export class RefusedError extends Error {
+  readonly exitCode = EXIT_REFUSED;
+  constructor() {
+    super("The check was refused");
+    this.name = "RefusedError";
+  }
+}
 
 /**
  * `limitry check <kind>:<id> <action> [--cost N] [--shared kind:id …]` —
  * the short form of `limitry checks create` (`POST /v1/checks`, consume
  * mode): one line saying allowed or refused, what's left and when it
- * resets. A refusal is an answer, not an error, so it exits 0; a failed
- * call (no token, a bad request) exits 1. `--json` prints the decision as
- * the API answers it.
+ * resets. A refusal prints the same way and exits 5, so a script can
+ * gate on it; wrong usage exits 2, and a failed call (a bad request, the
+ * network) exits 1. `--json` prints the decision as the API answers it.
  */
 export const checkCommand: Command = (program, ctx) => {
   program
     .command("check")
     .description(`Short for \`${brand.name} checks create\``)
-    .argument("<subject>", "who is acting, as kind:id (user:usr_123)")
+    .argument("<subject>", "who is acting, as kind:id (user:user_123)")
     .argument("<action>", "what they want to do (ai-call)")
     .option("--cost <n>", "units it would use (default 1)")
     .option(
@@ -28,7 +44,7 @@ export const checkCommand: Command = (program, ctx) => {
     .option("--json", "the decision as the API answers it")
     .addHelpText(
       "after",
-      `\nExample: ${brand.name} check user:usr_123 ai-call --cost 5\nA refusal exits 0: it's an answer. Errors exit 1.`,
+      `\nExample: ${brand.name} check user:user_123 ai-call --cost 5\nExit codes: 0 allowed, 5 refused, 2 wrong usage, 1 any other failure.`,
     )
     .action(
       async (
@@ -44,7 +60,7 @@ export const checkCommand: Command = (program, ctx) => {
         const cost =
           options.cost === undefined ? undefined : Number(options.cost);
         if (cost !== undefined && !Number.isInteger(cost)) {
-          throw new Error("--cost must be a whole number");
+          throw new UsageError("--cost must be a whole number");
         }
         const decision = await ctx
           .client({ workspace: options.workspace })
@@ -57,21 +73,21 @@ export const checkCommand: Command = (program, ctx) => {
                 ? { shared: options.shared.map(parseSubject) }
                 : {}),
             },
-            { idempotencyKey: crypto.randomUUID() },
+            // No key here: the client sends one, or the global
+            // --idempotency-key's, for every write.
           );
-        // 204 only answers `limitry-finish-only`, which a command never sends.
-        if (!decision) throw new Error("Limitry answered without a decision");
         ctx.io.stdout(options.json ? json(decision) : answer(decision));
+        if (!decision.allowed) throw new RefusedError();
       },
     );
 };
 
-/** `user:usr_123` → `{ kind: "user", id: "usr_123" }` (the id may hold colons). */
+/** `user:user_123` → `{ kind: "user", id: "user_123" }` (the id may hold colons). */
 export function parseSubject(value: string): { kind: string; id: string } {
   const at = value.indexOf(":");
   if (at <= 0 || at === value.length - 1) {
-    throw new Error(
-      `"${value}": write a subject as kind:id, e.g. user:usr_123`,
+    throw new UsageError(
+      `"${value}": write a subject as kind:id, e.g. user:user_123`,
     );
   }
   return { kind: value.slice(0, at), id: value.slice(at + 1) };
@@ -81,7 +97,7 @@ type Decision = Schemas["CheckDecision"];
 type CheckLimit = Decision["limits"][number];
 
 const left = (r: CheckLimit) =>
-  `${r.name}: ${r.remaining} ${r.unit} left${r.resetsAt ? `, resets ${r.resetsAt}` : ""}`;
+  `${r.limitName}: ${r.remaining} ${r.unit} left${r.resetsAt ? `, resets ${r.resetsAt}` : ""}`;
 
 /** The decision in one line. */
 export function answer(decision: Decision): string {

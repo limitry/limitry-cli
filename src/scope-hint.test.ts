@@ -1,5 +1,5 @@
 import { brand } from "./brand/index.ts";
-import { ApiError } from "@limitry/sdk";
+import { APIError, PermissionDeniedError } from "@limitry/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // A product's own hint (./product/index.ts) answers first by design, so
@@ -15,11 +15,11 @@ vi.mock("./product/index.ts", () => ({
 
 const { scopeHint } = await import("./cli.ts");
 
-const refused = new ApiError(
-  403,
-  "forbidden",
-  "This credential is not granted the scripts:write scope",
-);
+const refused = new PermissionDeniedError({
+  status: 403,
+  code: "forbidden",
+  message: "This credential is not granted the scripts:write scope",
+});
 
 afterEach(() => {
   hint.fn = undefined;
@@ -40,12 +40,22 @@ describe("a refusal for a missing permission says how to fix it (owner, 2026-11-
   });
 
   it("says nothing for other errors", () => {
-    expect(scopeHint(new ApiError(404, "not_found", "No such script"))).toBe(
-      null,
-    );
     expect(
       scopeHint(
-        new ApiError(403, "forbidden", "This route requires the owner role"),
+        new APIError({
+          status: 404,
+          code: "not_found",
+          message: "No such script",
+        }),
+      ),
+    ).toBe(null);
+    expect(
+      scopeHint(
+        new PermissionDeniedError({
+          status: 403,
+          code: "forbidden",
+          message: "This route requires the owner role",
+        }),
       ),
     ).toBe(null);
   });

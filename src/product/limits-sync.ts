@@ -13,11 +13,12 @@ import { json } from "../output.ts";
  * file kept in the repository (default `./limitry.json`, shaped
  * `{ "limits": [ … ] }`, each entry what `limits create` takes), through
  * `POST /v1/limits/sync`. Replaces the generated `limits sync`, which
- * would need the whole list as `--limits '<json>'`.
+ * would need the whole body as `--data '<json>'`.
  *
- *   limitry limits sync --preview          # what it would do; changes nothing
+ *   limitry limits sync --dry-run          # what it would do; changes nothing
  *   limitry limits sync                    # apply it
  *   limitry limits sync --archive-missing  # and archive limits not in the file
+ *   generate-limits | limitry sync -       # the file from stdin
  *
  * In CI the token is a workspace API key in LIMITRY_TOKEN: the key is its
  * workspace and environment, so no `--workspace` is needed. A person's
@@ -56,9 +57,8 @@ function syncCommand(
 ) {
   command
     .description(description)
-    .argument("[file]", "the file to read", "limitry.json")
-    .option("--preview", "show what would change, and change nothing")
-    .option("--limits <json>", "the limits as a JSON array, instead of a file")
+    .argument("[file]", "the file to read, or - for stdin", "limitry.json")
+    .option("--dry-run", "show what would change, and change nothing")
     .option(
       "--data <json>",
       "the whole JSON body, as every command takes, instead of a file",
@@ -86,8 +86,7 @@ function syncCommand(
       async (
         file: string,
         options: {
-          preview?: boolean;
-          limits?: string;
+          dryRun?: boolean;
           data?: string;
           archiveMissing?: boolean;
           source?: string;
@@ -97,17 +96,17 @@ function syncCommand(
       ) => {
         // --data is the request itself; the flags still apply over it.
         const data = options.data === undefined ? {} : parseData(options.data);
-        // The file is read only when no flag gives the limits.
+        // The file is read only when --data doesn't give the limits; `-`
+        // is stdin, as kubectl's `-f -` (a generated file, piped in).
+        const fromStdin = file === "-";
         const fromFile =
-          options.limits === undefined && data.limits === undefined
-            ? readSyncFile(file)
-            : null;
+          data.limits !== undefined
+            ? null
+            : fromStdin
+              ? parseSyncFile(await ctx.io.stdin(), "stdin")
+              : readSyncFile(file);
         const limits =
-          options.limits !== undefined
-            ? parseLimits(options.limits, "--limits")
-            : data.limits !== undefined
-              ? limitsIn(data.limits)
-              : fromFile!.limits;
+          data.limits !== undefined ? limitsIn(data.limits) : fromFile!.limits;
         // The workspace's kinds, when the file (or --data) names them.
         const kinds =
           data.kinds !== undefined
@@ -119,7 +118,7 @@ function syncCommand(
         const source =
           options.source ??
           (typeof data.source === "string" ? data.source : undefined) ??
-          (fromFile ? file : undefined);
+          (fromFile && !fromStdin ? file : undefined);
         const result = await ctx
           .client({ workspace: options.workspace })
           .limits.sync(
@@ -127,11 +126,12 @@ function syncCommand(
               limits,
               archiveMissing:
                 options.archiveMissing ?? data.archiveMissing === true,
-              preview: options.preview ?? data.preview === true,
+              dryRun: options.dryRun ?? data.dryRun === true,
               ...(kinds !== undefined ? { kinds } : {}),
               ...(source !== undefined ? { source } : {}),
             },
-            { idempotencyKey: crypto.randomUUID() },
+            // No key here: the client sends one, or the global
+            // --idempotency-key's, for every write.
           );
         if (options.json) {
           ctx.io.stdout(json(result));
@@ -166,6 +166,14 @@ export function readSyncFile(file: string): {
   } catch (error) {
     throw new Error(`${file}: no such file`, { cause: error });
   }
+  return parseSyncFile(text, file);
+}
+
+/** A sync file's text (from a file or stdin), checked as readSyncFile says. */
+export function parseSyncFile(
+  text: string,
+  file: string,
+): { limits: LimitInput[]; kinds?: KindInput[] } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -185,22 +193,6 @@ export function readSyncFile(file: string): {
     limits: body.limits as LimitInput[],
     ...(body.kinds !== undefined ? { kinds: body.kinds as KindInput[] } : {}),
   };
-}
-
-/** `--limits '[…]'`: the list itself, as the API reference shows it. */
-function parseLimits(text: string, flag: string): LimitInput[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch (error) {
-    throw new Error(`${flag} must be a JSON array of limits`, {
-      cause: error,
-    });
-  }
-  if (!Array.isArray(parsed)) {
-    throw new Error(`${flag} must be a JSON array of limits`);
-  }
-  return parsed as LimitInput[];
 }
 
 /** `--data '{…}'`: the whole body, as every generated command takes it. */
@@ -227,9 +219,9 @@ function limitsIn(value: unknown): LimitInput[] {
 const show = (value: unknown) =>
   typeof value === "string" ? value : JSON.stringify(value);
 
-/** A short account of what changed (or, with --preview, what would). */
+/** A short account of what changed (or, with --dry-run, what would). */
 export function summary(result: SyncResult): string[] {
-  const dry = result.preview;
+  const dry = result.dryRun;
   const lines = [
     ...result.created.map(
       (name) => `${dry ? "Would create" : "Created"}: ${name}`,
@@ -266,6 +258,6 @@ export function summary(result: SyncResult): string[] {
     ];
   }
   if (same > 0) lines.push(`Unchanged: ${same}`);
-  if (dry) lines.push("Preview: nothing was changed.");
+  if (dry) lines.push("Dry run: nothing was changed.");
   return lines;
 }

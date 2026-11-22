@@ -57,7 +57,7 @@ function file(contents: unknown) {
 }
 
 const plan = {
-  preview: true,
+  dryRun: true,
   created: ["Exports at once"],
   updated: [{ name: "AI budget", changes: { amount: { from: 100, to: 200 } } }],
   archived: ["Old limit"],
@@ -69,7 +69,7 @@ describe("limits sync", () => {
     const t = terminal(KEY, plan);
     const path = file({ limits: [budget] });
     const code = await run(
-      ["limits", "sync", path, "--preview", "--archive-missing"],
+      ["limits", "sync", path, "--dry-run", "--archive-missing"],
       t.io,
     );
     expect(code).toBe(0);
@@ -79,7 +79,7 @@ describe("limits sync", () => {
     expect(t.calls[0].body).toEqual({
       limits: [budget],
       archiveMissing: true,
-      preview: true,
+      dryRun: true,
       source: path,
     });
     // A key is its workspace: no X-Workspace, and none needed.
@@ -90,7 +90,7 @@ describe("limits sync", () => {
       "Would update: AI budget (amount 100 → 200)",
       "Would archive: Old limit",
       "Unchanged: 1",
-      "Preview: nothing was changed.",
+      "Dry run: nothing was changed.",
     ]);
     expect(t.err).toEqual(["Environment: live"]);
   });
@@ -106,12 +106,12 @@ describe("limits sync", () => {
       },
     ];
     const path = file({ limits: [budget], kinds });
-    const code = await run(["limits", "sync", path, "--preview"], t.io);
+    const code = await run(["limits", "sync", path, "--dry-run"], t.io);
     expect(code).toBe(0);
     expect(t.calls[0].body).toEqual({
       limits: [budget],
       archiveMissing: false,
-      preview: true,
+      dryRun: true,
       kinds,
       source: path,
     });
@@ -125,7 +125,7 @@ describe("limits sync", () => {
         "limits",
         "sync",
         "--data",
-        JSON.stringify({ limits: [budget], preview: true }),
+        JSON.stringify({ limits: [budget], dryRun: true }),
       ],
       t.io,
     );
@@ -133,14 +133,14 @@ describe("limits sync", () => {
     expect(t.calls[0].body).toEqual({
       limits: [budget],
       archiveMissing: false,
-      preview: true,
+      dryRun: true,
     });
   });
 
   it("reads ./limitry.json by default and prints the API's JSON with --json", async () => {
     const applied = {
       ...plan,
-      preview: false,
+      dryRun: false,
       created: [],
       updated: [],
       archived: [],
@@ -158,7 +158,7 @@ describe("limits sync", () => {
     expect(t.calls[0].body).toEqual({
       limits: [],
       archiveMissing: false,
-      preview: false,
+      dryRun: false,
       source: "limitry.json",
     });
     expect(JSON.parse(t.out.join("\n"))).toEqual(applied);
@@ -169,7 +169,7 @@ describe("limits sync", () => {
   });
 
   it("names the workspace for a person's token", async () => {
-    const t = terminal(PAT, { ...plan, preview: false });
+    const t = terminal(PAT, { ...plan, dryRun: false });
     const code = await run(
       ["limits", "sync", file({ limits: [budget] }), "--workspace", "acme"],
       t.io,
@@ -222,7 +222,7 @@ describe("limits sync", () => {
     const path = file({ limits: [budget] });
     const long = terminal(KEY, plan);
     const short = terminal(KEY, plan);
-    const flags = ["--preview", "--archive-missing"];
+    const flags = ["--dry-run", "--archive-missing"];
     expect(await run(["limits", "sync", path, ...flags], long.io)).toBe(0);
     expect(await run(["sync", path, ...flags], short.io)).toBe(0);
     expect(short.calls.map((c) => [c.path, c.body])).toEqual(
@@ -251,7 +251,7 @@ describe("limits sync", () => {
         file({ limits: [budget] }),
         "--source",
         "Reminix deploy",
-        "--preview",
+        "--dry-run",
       ],
       flag.io,
     );
@@ -267,24 +267,65 @@ describe("limits sync", () => {
     );
     expect(data.calls[0].body).toMatchObject({ source: "Plans build" });
     const none = terminal(KEY, plan);
-    await run(["sync", "--limits", JSON.stringify([budget])], none.io);
+    await run(
+      ["sync", "--data", JSON.stringify({ limits: [budget] })],
+      none.io,
+    );
     expect(none.calls[0].body).not.toHaveProperty("source");
   });
 
-  it("takes the list as --limits instead of a file, as the API reference shows", async () => {
+  it("reads the file from stdin with -, as a generated file is piped in", async () => {
     const t = terminal(KEY, plan);
-    const code = await run(
-      ["limits", "sync", "--limits", JSON.stringify([budget]), "--preview"],
-      t.io,
-    );
+    t.io.stdin = async () => JSON.stringify({ limits: [budget] });
+    const code = await run(["limits", "sync", "-", "--dry-run"], t.io);
     expect(code).toBe(0);
+    // No file's name to name: the lock reads "Set by a sync" unless
+    // --source says.
     expect(t.calls[0].body).toEqual({
       limits: [budget],
       archiveMissing: false,
-      preview: true,
+      dryRun: true,
     });
     const bad = terminal(KEY, plan);
-    expect(await run(["sync", "--limits", "{}"], bad.io)).toBe(1);
+    bad.io.stdin = async () => "{}";
+    expect(await run(["sync", "-"], bad.io)).toBe(1);
     expect(bad.calls).toHaveLength(0);
+    expect(bad.err.join("\n")).toContain("stdin");
+  });
+
+  it("sends the global --idempotency-key, not a key of its own", async () => {
+    const t = terminal(KEY, plan);
+    await run(
+      [
+        "--idempotency-key",
+        "deploy-42",
+        "sync",
+        "--data",
+        JSON.stringify({ limits: [budget] }),
+      ],
+      t.io,
+    );
+    const sent = t.calls[0].headers.get("idempotency-key");
+    expect(sent).not.toBeNull();
+    // The CLI derives the request's key from the one given (one per
+    // write), the same for a retry or a second run.
+    const again = terminal(KEY, plan);
+    await run(
+      [
+        "--idempotency-key",
+        "deploy-42",
+        "sync",
+        "--data",
+        JSON.stringify({ limits: [budget] }),
+      ],
+      again.io,
+    );
+    expect(again.calls[0].headers.get("idempotency-key")).toBe(sent);
+    const other = terminal(KEY, plan);
+    await run(
+      ["sync", "--data", JSON.stringify({ limits: [budget] })],
+      other.io,
+    );
+    expect(other.calls[0].headers.get("idempotency-key")).not.toBe(sent);
   });
 });

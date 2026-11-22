@@ -6,6 +6,7 @@ import { brand } from "../brand/index.ts";
 import { describe, expect, it } from "vitest";
 
 import { run, type Io } from "../cli.ts";
+import { EXIT_REFUSED } from "./check.ts";
 
 const KEY = "lim_test_abcdefghijklmnop";
 const TOKEN = `${brand.identifier.toUpperCase()}_TOKEN`;
@@ -37,7 +38,7 @@ function terminal(answer: unknown, status = 200) {
 
 const budget = {
   limitId: "lmt_a",
-  name: "AI budget",
+  limitName: "AI budget",
   unit: "cents",
   window: "month",
   rolling: false,
@@ -45,14 +46,12 @@ const budget = {
   resetsAt: "2026-11-01T00:00:00.000Z",
 };
 const allowed = {
-  id: "chk_1",
   allowed: true,
   reason: null,
   limits: [{ ...budget, remaining: 195 }],
   retryAfterSeconds: null,
 };
 const refused = {
-  id: "chk_2",
   allowed: false,
   reason: {
     code: "limit_reached",
@@ -126,7 +125,7 @@ describe("check", () => {
     // say, not a flag to drop silently.
     for (const args of [
       ["check", "user:usr_123", "ai-call", "--workspace", "acme"],
-      ["sync", "--limits", "[]", "--workspace", "acme"],
+      ["sync", "--data", '{"limits":[]}', "--workspace", "acme"],
     ]) {
       const t = terminal({});
       expect(await run(args, t.io)).toBe(1);
@@ -137,9 +136,13 @@ describe("check", () => {
     }
   });
 
-  it("says why it was refused, and exits 0: a refusal is an answer", async () => {
+  it("says why it was refused, and exits 5, so a script can gate on it", async () => {
     const t = terminal(refused);
-    expect(await run(["check", "user:usr_123", "ai-call"], t.io)).toBe(0);
+    expect(await run(["check", "user:usr_123", "ai-call"], t.io)).toBe(
+      EXIT_REFUSED,
+    );
+    expect(EXIT_REFUSED).toBe(5);
+    expect(t.err.join("\n")).toContain("The check was refused");
     expect(t.calls[0].body).toEqual({
       subject: { kind: "user", id: "usr_123" },
       action: "ai-call",
@@ -148,11 +151,13 @@ describe("check", () => {
       "Refused by AI budget: 0 cents left, resets 2026-11-01T00:00:00.000Z. Try again in 3600 s.",
     ]);
     const json = terminal(refused);
-    await run(["check", "user:usr_123", "ai-call", "--json"], json.io);
+    expect(
+      await run(["check", "user:usr_123", "ai-call", "--json"], json.io),
+    ).toBe(EXIT_REFUSED);
     expect(JSON.parse(json.out.join("\n"))).toEqual(refused);
   });
 
-  it("exits 1 on an error, and on a subject that isn't kind:id", async () => {
+  it("exits 1 on an error, and 2 on a subject that isn't kind:id", async () => {
     const t = terminal(
       { error: { code: "forbidden", message: "Missing scope checks:write" } },
       403,
@@ -161,7 +166,7 @@ describe("check", () => {
     expect(t.err.join("\n")).toContain("Missing scope");
 
     const bad = terminal(allowed);
-    expect(await run(["check", "usr_123", "ai-call"], bad.io)).toBe(1);
+    expect(await run(["check", "usr_123", "ai-call"], bad.io)).toBe(2);
     expect(bad.calls).toHaveLength(0);
     expect(bad.err.join("\n")).toContain("kind:id");
   });

@@ -40,10 +40,10 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "json",
         "required": true,
-        "description": "Who is acting, such as `{\"kind\": \"user\", \"id\": \"usr_123\"}`.",
+        "description": "Who is acting, such as `{\"kind\": \"user\", \"id\": \"user_123\"}`.",
         "example": {
           "kind": "user",
-          "id": "usr_123"
+          "id": "user_123"
         },
         "schema": {
           "type": "object",
@@ -65,7 +65,7 @@ export const OPERATIONS: readonly Operation[] = [
             "kind",
             "id"
           ],
-          "description": "Who is acting, such as `{\"kind\": \"user\", \"id\": \"usr_123\"}`."
+          "description": "Who is acting, such as `{\"kind\": \"user\", \"id\": \"user_123\"}`."
         }
       },
       {
@@ -163,33 +163,72 @@ export const OPERATIONS: readonly Operation[] = [
     "scope": "checks:write"
   },
   {
-    "operationId": "checks.recent",
+    "operationId": "checks.list",
     "method": "get",
-    "path": "/checks/recent",
-    "summary": "List recent checks",
+    "path": "/checks",
+    "summary": "List checks",
     "cli": {
-      "command": "checks recent",
+      "command": "checks list",
       "args": [],
       "confirm": false
     },
     "mcp": {
       "exposed": true,
-      "name": "checks_recent",
+      "name": "checks_list",
       "hints": {
         "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true
       }
     },
-    "description": "Lists the checks of the last 3 days, newest first, with every subject each one named and whether Limitry allowed it. A refused check says whose budget refused it. Name a `subject` as `kind:id` for only the checks that named it, or set `refused` for only refused ones. Limitry keeps the last 3 days, and at most 100,000 checks in each environment. Results come a page at a time.",
+    "description": "Lists the checks of the last 3 days, newest first, with every subject each one named and whether Limitry allowed it. A refused check says whose budget refused it. Name a `subject` as `kind:id` for only the checks that named it, or set `refused` for only refused ones. Send `before` to start from a moment. Limitry keeps the last 3 days, and at most 100,000 checks in each environment. Results come a page at a time.",
     "fields": [
+      {
+        "name": "limit",
+        "in": "query",
+        "type": "number",
+        "required": false,
+        "description": "Items per page, 1–100 (default 25).",
+        "example": 25,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "description": "Items per page, 1–100 (default 25)."
+        }
+      },
+      {
+        "name": "cursor",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "Opaque token from a previous page's nextCursor.",
+        "schema": {
+          "type": "string",
+          "description": "Opaque token from a previous page's nextCursor."
+        }
+      },
+      {
+        "name": "before",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "Start from this moment: items older than it, newest first. Ignored with `cursor`, which already says where to go on.",
+        "example": "2026-11-01T00:00:00.000Z",
+        "schema": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Start from this moment: items older than it, newest first. Ignored with `cursor`, which already says where to go on."
+        }
+      },
       {
         "name": "subject",
         "in": "query",
         "type": "string",
         "required": false,
         "description": "Only checks that named this subject, as `kind:id`.",
-        "example": "user:usr_123",
+        "example": "user:user_123",
         "schema": {
           "type": "string",
           "maxLength": 301,
@@ -211,36 +250,10 @@ export const OPERATIONS: readonly Operation[] = [
           ],
           "description": "`true` for only refused checks."
         }
-      },
-      {
-        "name": "limit",
-        "in": "query",
-        "type": "number",
-        "required": false,
-        "description": "How many to return, from 1 to 100. Default: 25.",
-        "example": 25,
-        "schema": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 100,
-          "default": 25,
-          "description": "How many to return, from 1 to 100. Default: 25."
-        }
-      },
-      {
-        "name": "cursor",
-        "in": "query",
-        "type": "string",
-        "required": false,
-        "description": "The `nextCursor` of the page before.",
-        "schema": {
-          "type": "string",
-          "maxLength": 200,
-          "description": "The `nextCursor` of the page before."
-        }
       }
     ],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "limits:read"
@@ -326,7 +339,7 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "json",
         "required": true,
-        "description": "Who the limit applies to. `{\"kind\": \"user\"}` covers every user, and `{\"kind\": \"user\", \"id\": \"usr_123\"}` covers one.",
+        "description": "Who the limit applies to. `{\"kind\": \"user\"}` covers every user, and `{\"kind\": \"user\", \"id\": \"user_123\"}` covers one.",
         "example": {
           "kind": "user"
         },
@@ -352,7 +365,7 @@ export const OPERATIONS: readonly Operation[] = [
           "required": [
             "kind"
           ],
-          "description": "Who the limit applies to. `{\"kind\": \"user\"}` covers every user, and `{\"kind\": \"user\", \"id\": \"usr_123\"}` covers one."
+          "description": "Who the limit applies to. `{\"kind\": \"user\"}` covers every user, and `{\"kind\": \"user\", \"id\": \"user_123\"}` covers one."
         }
       },
       {
@@ -586,6 +599,60 @@ export const OPERATIONS: readonly Operation[] = [
     "scope": "limits:write"
   },
   {
+    "operationId": "limits.credits.get",
+    "method": "get",
+    "path": "/limits/{limitId}/credits/{creditId}",
+    "summary": "Get a credit",
+    "cli": {
+      "command": "limits credits get",
+      "args": [
+        "limitId",
+        "creditId"
+      ],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "limits_credits_get",
+      "hints": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    "description": "Returns one credit added to a subject's balance on this limit.",
+    "fields": [
+      {
+        "name": "limitId",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case.",
+        "example": "lmt_6f1c2a9e-4b7d-4e3a-9c5f-8d2b1a0e7c34",
+        "schema": {
+          "type": "string",
+          "description": "The limit's ID, or its name, such as `AI budget` (URL-encoded). A name matches an active limit in this environment, exactly or else ignoring case."
+        }
+      },
+      {
+        "name": "creditId",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The credit's ID.",
+        "example": "crd_5a8d3f2b-9c1e-4b7a-8f6d-2e0c9b4a1d73",
+        "schema": {
+          "type": "string",
+          "description": "The credit's ID."
+        }
+      }
+    ],
+    "hasBody": false,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "limits:read"
+  },
+  {
     "operationId": "limits.credits.list",
     "method": "get",
     "path": "/limits/{limitId}/credits",
@@ -675,6 +742,7 @@ export const OPERATIONS: readonly Operation[] = [
       }
     ],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "limits:read"
@@ -810,6 +878,7 @@ export const OPERATIONS: readonly Operation[] = [
       }
     ],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "limits:read"
@@ -875,7 +944,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Makes the environment's limits match the list in `limits`, pairing them up by name. It creates the limits that are missing and changes the ones that differ, where an omitted field means its default. With `archiveMissing`, it also archives the active limits the list doesn't name. Running it twice changes nothing the second time. Limitry checks the whole list before writing anything. If any entry has a problem, nothing changes, and the 400 lists each problem in `details`. Otherwise Limitry writes every change at once. You can't change a limit's subject, action, unit, window, every, start or rolling under the same name, so rename the entry to do that. With `preview`, it returns what it would do without writing anything. What a sync sets is locked in the app until the next sync, which names its `source`. This is the call behind `limitry sync`, for keeping your limits in a file in your repository. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Makes the environment's limits match the list in `limits`, pairing them up by name. It creates the limits that are missing and changes the ones that differ, where an omitted field means its default. With `archiveMissing`, it also archives the active limits the list doesn't name. Running it twice changes nothing the second time. Limitry checks the whole list before writing anything. If any entry has a problem, nothing changes, and the 400 lists each problem in `details`. Otherwise Limitry writes every change at once. You can't change a limit's subject, action, unit, window, every, start or rolling under the same name, so rename the entry to do that. With `dryRun`, it returns what it would do without writing anything. What a sync sets is locked in the app until the next sync, which names its `source`. This is the call behind `limitry sync`, for keeping your limits in a file in your repository. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "limits",
@@ -935,7 +1004,7 @@ export const OPERATIONS: readonly Operation[] = [
         }
       },
       {
-        "name": "preview",
+        "name": "dryRun",
         "in": "body",
         "type": "boolean",
         "required": false,
@@ -1268,7 +1337,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Commits a reservation with the amount actually used (`cost`). If `cost` is less than the amount reserved, the rest goes back at once. If it's more, Limitry charges the whole `cost`, since the work happened. A commit up to 24 hours after the reservation expired still charges `cost`. Repeating a commit with the same `cost` returns the same result, and a different `cost` gets a 400. We cache its API key check briefly for speed. A revoked key can keep working here for up to 60 seconds.",
+    "description": "Commits a reservation with the amount actually used (`cost`). If `cost` is less than the amount reserved, the rest goes back at once. If it's more, Limitry charges the whole `cost`, since the work happened. A commit up to 24 hours after the reservation expired still charges `cost`. Repeating a commit with the same `cost` returns the same result, and a different `cost` gets a 400. Committing a released reservation gets a 409. We cache its API key check briefly for speed. A revoked key can keep working here for up to 60 seconds.",
     "fields": [
       {
         "name": "reservationId",
@@ -1355,6 +1424,46 @@ export const OPERATIONS: readonly Operation[] = [
     "scope": "checks:write"
   },
   {
+    "operationId": "reservations.get",
+    "method": "get",
+    "path": "/reservations/{reservationId}",
+    "summary": "Get a reservation",
+    "cli": {
+      "command": "reservations get",
+      "args": [
+        "reservationId"
+      ],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "reservations_get",
+      "hints": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    "description": "Returns a reservation as it stands: held, committed, released or expired, with what it reserved and what it finally used. A reservation past its expiry that nobody committed or released reads as expired. Reading it changes nothing.",
+    "fields": [
+      {
+        "name": "reservationId",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The reservation's ID.",
+        "schema": {
+          "type": "string",
+          "description": "The reservation's ID."
+        }
+      }
+    ],
+    "hasBody": false,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "checks:write"
+  },
+  {
     "operationId": "reservations.release",
     "method": "post",
     "path": "/reservations/{reservationId}/release",
@@ -1393,64 +1502,6 @@ export const OPERATIONS: readonly Operation[] = [
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "checks:write"
-  },
-  {
-    "operationId": "subjects.delete",
-    "method": "delete",
-    "path": "/subjects/{subjectKind}/{subjectId}",
-    "summary": "Erase a subject's name and labels",
-    "cli": {
-      "command": "subjects delete",
-      "args": [
-        "subjectKind",
-        "subjectId"
-      ],
-      "confirm": true
-    },
-    "mcp": {
-      "exposed": true,
-      "name": "subjects_delete",
-      "hints": {
-        "readOnlyHint": false,
-        "destructiveHint": true,
-        "idempotentHint": true
-      }
-    },
-    "description": "Erases the name and labels you gave a subject. Its limits, usage and billing date stay, because they're kept by its ID. Use it when one of your users asks you to delete their data. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
-    "fields": [
-      {
-        "name": "subjectKind",
-        "in": "path",
-        "type": "string",
-        "required": true,
-        "description": "The subject kind's ID.",
-        "example": "team",
-        "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100,
-          "description": "The subject kind's ID."
-        }
-      },
-      {
-        "name": "subjectId",
-        "in": "path",
-        "type": "string",
-        "required": true,
-        "description": "The subject's ID.",
-        "example": "team_42",
-        "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200,
-          "description": "The subject's ID."
-        }
-      }
-    ],
-    "hasBody": false,
-    "workspace": true,
-    "acceptsApiKey": true,
-    "scope": "limits:write"
   },
   {
     "operationId": "subjects.get",
@@ -1621,6 +1672,32 @@ export const OPERATIONS: readonly Operation[] = [
     "description": "Lists every subject your checks have named in this environment, and every one you named, most recently checked first. Filter by `kind` or by one `label`, and search the name or the ID with `q`. Results come a page at a time.",
     "fields": [
       {
+        "name": "limit",
+        "in": "query",
+        "type": "number",
+        "required": false,
+        "description": "Items per page, 1–100 (default 25).",
+        "example": 25,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "description": "Items per page, 1–100 (default 25)."
+        }
+      },
+      {
+        "name": "cursor",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "Opaque token from a previous page's nextCursor.",
+        "schema": {
+          "type": "string",
+          "description": "Opaque token from a previous page's nextCursor."
+        }
+      },
+      {
         "name": "kind",
         "in": "query",
         "type": "string",
@@ -1659,39 +1736,71 @@ export const OPERATIONS: readonly Operation[] = [
           "maxLength": 200,
           "description": "Only subjects whose name or ID contains this text, in any case."
         }
-      },
+      }
+    ],
+    "hasBody": false,
+    "paginated": true,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "limits:read"
+  },
+  {
+    "operationId": "subjects.names.delete",
+    "method": "delete",
+    "path": "/subjects/{subjectKind}/{subjectId}/names",
+    "summary": "Erase a subject's name and labels",
+    "cli": {
+      "command": "subjects names delete",
+      "args": [
+        "subjectKind",
+        "subjectId"
+      ],
+      "confirm": true
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "subjects_names_delete",
+      "hints": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true
+      }
+    },
+    "description": "Erases the name and labels you gave a subject. Its limits, usage and billing date stay, because they're kept by its ID. Use it when one of your users asks you to delete their data. Erasing a subject with no name or labels succeeds too. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "fields": [
       {
-        "name": "limit",
-        "in": "query",
-        "type": "number",
-        "required": false,
-        "description": "How many to return, from 1 to 100. Default: 25.",
-        "example": 25,
+        "name": "subjectKind",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The subject kind's ID.",
+        "example": "team",
         "schema": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 100,
-          "default": 25,
-          "description": "How many to return, from 1 to 100. Default: 25."
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The subject kind's ID."
         }
       },
       {
-        "name": "cursor",
-        "in": "query",
+        "name": "subjectId",
+        "in": "path",
         "type": "string",
-        "required": false,
-        "description": "The `nextCursor` of the page before.",
+        "required": true,
+        "description": "The subject's ID.",
+        "example": "team_42",
         "schema": {
           "type": "string",
+          "minLength": 1,
           "maxLength": 200,
-          "description": "The `nextCursor` of the page before."
+          "description": "The subject's ID."
         }
       }
     ],
     "hasBody": false,
     "workspace": true,
     "acceptsApiKey": true,
-    "scope": "limits:read"
+    "scope": "limits:write"
   },
   {
     "operationId": "subjects.reset",
@@ -1764,12 +1873,12 @@ export const OPERATIONS: readonly Operation[] = [
     "scope": "limits:write"
   },
   {
-    "operationId": "subjects.set",
-    "method": "put",
-    "path": "/subjects/{subjectKind}/{subjectId}/names",
-    "summary": "Name a subject",
+    "operationId": "subjects.standing",
+    "method": "get",
+    "path": "/subjects/{subjectKind}/{subjectId}/standing",
+    "summary": "Get where a subject stands",
     "cli": {
-      "command": "subjects set",
+      "command": "subjects standing",
       "args": [
         "subjectKind",
         "subjectId"
@@ -1778,14 +1887,14 @@ export const OPERATIONS: readonly Operation[] = [
     },
     "mcp": {
       "exposed": true,
-      "name": "subjects_set",
+      "name": "subjects_standing",
       "hints": {
-        "readOnlyHint": false,
+        "readOnlyHint": true,
         "destructiveHint": false,
         "idempotentHint": true
       }
     },
-    "description": "Sets a subject's name, its labels, or both. Both are optional, and checks never need them. A field you leave out stays as it is, and null clears it. Labels you send replace the subject's labels. `DELETE /v1/subjects/{subjectKind}/{subjectId}` erases them. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Returns where one subject stands on every enabled limit, exact as of now. It covers the subject's own limits and the limits on its shared subjects. List the shared subjects in `shared`, such as `team:team_42`. Each limit shows what's used, what's left and when it resets. Use it to show your users where they stand. Call it from your server with your key, never from a browser. It isn't a check, so it counts nothing. A subject with no limits returns an empty `limits` list.",
     "fields": [
       {
         "name": "subjectKind",
@@ -1813,6 +1922,90 @@ export const OPERATIONS: readonly Operation[] = [
           "minLength": 1,
           "maxLength": 200,
           "description": "The subject's ID."
+        }
+      },
+      {
+        "name": "shared",
+        "in": "query",
+        "type": "string",
+        "required": false,
+        "description": "Shared subjects to include, as comma-separated `kind:id` pairs. Send up to 4.",
+        "example": "team:team_42",
+        "schema": {
+          "type": "string",
+          "maxLength": 1500,
+          "description": "Shared subjects to include, as comma-separated `kind:id` pairs. Send up to 4."
+        }
+      }
+    ],
+    "hasBody": false,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "limits:read"
+  },
+  {
+    "operationId": "subjects.update",
+    "method": "patch",
+    "path": "/subjects/{subjectKind}/{subjectId}",
+    "summary": "Update a subject",
+    "cli": {
+      "command": "subjects update",
+      "args": [
+        "subjectKind",
+        "subjectId"
+      ],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "subjects_update",
+      "hints": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false
+      }
+    },
+    "description": "Sets a subject's billing date, its name, its labels, or any of them. A field you leave out stays as it is, and null clears a name or labels. Labels you send replace the subject's labels. The billing date is the moment the subject's `billing_date` limits count their periods from, usually the subscription's start, set from your billing system's webhook. The subject's allowance then resets on its own billing day, and a monthly limit still resets monthly on an annual plan. A name and labels are optional, and checks never need them. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "fields": [
+      {
+        "name": "subjectKind",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The subject kind's ID.",
+        "example": "team",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "The subject kind's ID."
+        }
+      },
+      {
+        "name": "subjectId",
+        "in": "path",
+        "type": "string",
+        "required": true,
+        "description": "The subject's ID.",
+        "example": "team_42",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The subject's ID."
+        }
+      },
+      {
+        "name": "billingAnchorAt",
+        "in": "body",
+        "type": "string",
+        "required": false,
+        "description": "The moment the subject's periods start from, in ISO 8601, such as a subscription's start.",
+        "example": "2026-03-17T14:30:00Z",
+        "schema": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The moment the subject's periods start from, in ISO 8601, such as a subscription's start."
         }
       },
       {
@@ -1851,77 +2044,6 @@ export const OPERATIONS: readonly Operation[] = [
             "maxLength": 200
           },
           "description": "Labels to filter by, such as a plan or a region: up to 20 keys of up to 40 characters, with values of up to 200. Optional. They replace the subject's labels. Send null to clear them."
-        }
-      }
-    ],
-    "hasBody": true,
-    "workspace": true,
-    "acceptsApiKey": true,
-    "scope": "limits:write"
-  },
-  {
-    "operationId": "subjects.update",
-    "method": "patch",
-    "path": "/subjects/{subjectKind}/{subjectId}",
-    "summary": "Set a subject's billing date",
-    "cli": {
-      "command": "subjects update",
-      "args": [
-        "subjectKind",
-        "subjectId"
-      ],
-      "confirm": false
-    },
-    "mcp": {
-      "exposed": true,
-      "name": "subjects_update",
-      "hints": {
-        "readOnlyHint": false,
-        "destructiveHint": false,
-        "idempotentHint": false
-      }
-    },
-    "description": "Sets the date a subject's `billing_date` limits count their periods from. Usually this is the subscription's start date, set from your billing system's webhook. The subject's allowance then resets on its own billing day, and a monthly limit still resets monthly on an annual plan. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
-    "fields": [
-      {
-        "name": "subjectKind",
-        "in": "path",
-        "type": "string",
-        "required": true,
-        "description": "The subject kind's ID.",
-        "example": "team",
-        "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 100,
-          "description": "The subject kind's ID."
-        }
-      },
-      {
-        "name": "subjectId",
-        "in": "path",
-        "type": "string",
-        "required": true,
-        "description": "The subject's ID.",
-        "example": "team_42",
-        "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200,
-          "description": "The subject's ID."
-        }
-      },
-      {
-        "name": "billingDate",
-        "in": "body",
-        "type": "string",
-        "required": true,
-        "description": "The date and time the subject's periods start from, in ISO 8601, such as a subscription's start.",
-        "example": "2026-03-17T14:30:00Z",
-        "schema": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The date and time the subject's periods start from, in ISO 8601, such as a subscription's start."
         }
       }
     ],
@@ -2087,7 +2209,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": false,
         "description": "One subject, as `kind:id`, to see its usage instead of every subject's.",
-        "example": "user:usr_123",
+        "example": "user:user_123",
         "schema": {
           "type": "string",
           "minLength": 3,
@@ -2154,59 +2276,6 @@ export const OPERATIONS: readonly Operation[] = [
           ],
           "default": "day",
           "description": "Whether each bucket is an `hour` or a `day`, in UTC. Default: day."
-        }
-      }
-    ],
-    "hasBody": false,
-    "workspace": true,
-    "acceptsApiKey": true,
-    "scope": "limits:read"
-  },
-  {
-    "operationId": "usage.standing",
-    "method": "get",
-    "path": "/usage/standing",
-    "summary": "Get where a subject stands",
-    "cli": {
-      "command": "usage standing",
-      "args": [],
-      "confirm": false
-    },
-    "mcp": {
-      "exposed": true,
-      "name": "usage_standing",
-      "hints": {
-        "readOnlyHint": true,
-        "destructiveHint": false,
-        "idempotentHint": true
-      }
-    },
-    "description": "Returns where one subject stands on every enabled limit, exact as of now. It covers the subject's own limits and the limits on its shared subjects. Name the subject as `kind:id`, such as `user:usr_123`, and list its shared subjects in `shared`, such as `team:team_42`. Each limit shows what's used, what's left and when it resets. Use it to show your users where they stand. Call it from your server with your key, never from a browser. It isn't a check, so it counts nothing. A subject with no limits returns an empty `limits` list.",
-    "fields": [
-      {
-        "name": "subject",
-        "in": "query",
-        "type": "string",
-        "required": true,
-        "description": "The subject, written as `kind:id` exactly as your checks send it.",
-        "example": "user:usr_123",
-        "schema": {
-          "type": "string",
-          "minLength": 3,
-          "maxLength": 301,
-          "description": "The subject, written as `kind:id` exactly as your checks send it."
-        }
-      },
-      {
-        "name": "shared",
-        "in": "query",
-        "type": "string",
-        "required": false,
-        "description": "Shared subjects to include, as comma-separated `kind:id` pairs. Send up to 4.",
-        "example": "team:team_42",
-        "schema": {
-          "type": "string",
-          "description": "Shared subjects to include, as comma-separated `kind:id` pairs. Send up to 4."
         }
       }
     ],
@@ -2323,17 +2392,17 @@ export const OPERATIONS: readonly Operation[] = [
         }
       },
       {
-        "name": "limit",
+        "name": "top",
         "in": "query",
         "type": "number",
         "required": false,
-        "description": "How many subjects to list. Default: 50. The response holds at most 50, or 25 for a `concurrent` limit, even if you ask for more.",
+        "description": "How many subjects to rank, up to 50. Default: 50. A `concurrent` limit ranks at most 25.",
         "schema": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 200,
+          "maximum": 50,
           "default": 50,
-          "description": "How many subjects to list. Default: 50. The response holds at most 50, or 25 for a `concurrent` limit, even if you ask for more."
+          "description": "How many subjects to rank, up to 50. Default: 50. A `concurrent` limit ranks at most 25."
         }
       }
     ],
@@ -2401,9 +2470,10 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists the actions a credential can't take itself but can ask a person to approve. Each action comes with its input as a JSON Schema, who can approve it and whether it creates a secret.",
+    "description": "Lists the actions a credential can't take itself but can ask a person to approve. Each action comes with its input as a JSON Schema (`inputSchema`), who can approve it and whether it creates a secret. Every action fits on one page, so `nextCursor` is null.",
     "fields": [],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "workspace.approvals:read"
@@ -2482,12 +2552,12 @@ export const OPERATIONS: readonly Operation[] = [
   {
     "operationId": "workspace.approvalRequests.get",
     "method": "get",
-    "path": "/workspace/approval-requests/{requestId}",
+    "path": "/workspace/approval-requests/{approvalRequestId}",
     "summary": "Check an approval request",
     "cli": {
       "command": "workspace approval-requests get",
       "args": [
-        "requestId"
+        "approvalRequestId"
       ],
       "confirm": false
     },
@@ -2503,15 +2573,15 @@ export const OPERATIONS: readonly Operation[] = [
     "description": "Returns an approval request you created, with its status. A `pending` request is waiting for a person to decide. A `completed` request's action ran, and `result` holds the outcome. An `approved` request is waiting for the CLI to redeem it. A request can also be `denied`, `failed` or `expired`.",
     "fields": [
       {
-        "name": "requestId",
+        "name": "approvalRequestId",
         "in": "path",
         "type": "string",
         "required": true,
-        "description": "The request's id.",
-        "example": "apr_7c2e…",
+        "description": "The approval request's id.",
+        "example": "apr_7c2e9b4d-1f3a-4e5b-8c6d-7e8f9a0b1c2d",
         "schema": {
           "type": "string",
-          "description": "The request's id."
+          "description": "The approval request's id."
         }
       }
     ],
@@ -2523,12 +2593,12 @@ export const OPERATIONS: readonly Operation[] = [
   {
     "operationId": "workspace.approvalRequests.redeem",
     "method": "post",
-    "path": "/workspace/approval-requests/{requestId}/redeem",
+    "path": "/workspace/approval-requests/{approvalRequestId}/redeem",
     "summary": "Redeem an approved request",
     "cli": {
       "command": "workspace approval-requests redeem",
       "args": [
-        "requestId"
+        "approvalRequestId"
       ],
       "confirm": false
     },
@@ -2539,15 +2609,15 @@ export const OPERATIONS: readonly Operation[] = [
     "description": "Runs an approved action that creates a secret, and returns the secret. The action runs only once. Only the personal access token that asked can redeem it. The CLI writes the secret to a file without printing it.",
     "fields": [
       {
-        "name": "requestId",
+        "name": "approvalRequestId",
         "in": "path",
         "type": "string",
         "required": true,
-        "description": "The request's id.",
-        "example": "apr_7c2e…",
+        "description": "The approval request's id.",
+        "example": "apr_7c2e9b4d-1f3a-4e5b-8c6d-7e8f9a0b1c2d",
         "schema": {
           "type": "string",
-          "description": "The request's id."
+          "description": "The approval request's id."
         }
       }
     ],
@@ -2622,7 +2692,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": false,
         "description": "Only events of this action.",
-        "example": "workspace.member_invited",
+        "example": "workspace.member.invited",
         "schema": {
           "type": "string",
           "maxLength": 100,
@@ -2635,7 +2705,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": false,
         "description": "Only what one person did (`user:` and the item's `actor.id`), or one key or token (`credential:` and the item's `credential.id`).",
-        "example": "user:usr_k3TAiF2ZP5sQ",
+        "example": "user:usr_4f8a2c1e-7b3d-4e9f-a6c5-2d1b0e9f8a7c",
         "schema": {
           "type": "string",
           "pattern": "^(user|credential):[\\w-]+$",
@@ -2644,6 +2714,7 @@ export const OPERATIONS: readonly Operation[] = [
       }
     ],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "workspace.audit:read"
@@ -2667,9 +2738,10 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists every workspace event a webhook endpoint can subscribe to, and what each one means. Pass some as `eventTypes` when you add an endpoint. An endpoint without a list receives every event.",
+    "description": "Lists every workspace event a webhook endpoint can subscribe to, and what each one means. Pass some as `eventTypes` when you add an endpoint. An endpoint without a list receives every event. Every type fits on one page, so `nextCursor` is null.",
     "fields": [],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "workspace.webhooks:read"
@@ -2749,6 +2821,7 @@ export const OPERATIONS: readonly Operation[] = [
       }
     ],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "workspace.members:read"
@@ -2802,9 +2875,36 @@ export const OPERATIONS: readonly Operation[] = [
       }
     ],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "workspace.members:read"
+  },
+  {
+    "operationId": "workspace.planUsage.get",
+    "method": "get",
+    "path": "/workspace/plan-usage",
+    "summary": "Get your plan's usage this period",
+    "cli": {
+      "command": "workspace plan-usage get",
+      "args": [],
+      "confirm": false
+    },
+    "mcp": {
+      "exposed": true,
+      "name": "workspace_plan_usage_get",
+      "hints": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true
+      }
+    },
+    "description": "Returns what the workspace used this period, with one entry for each thing its plan counts. Each entry has the plan's limit, or null when there is no limit. Each entry also says where it stands and where we start refusing new use. A period is one month from the workspace's billing date. That date comes from its subscription or, without one, from the day you created the workspace. On an annual plan, the counts still reset every month from the subscription's start.",
+    "fields": [],
+    "hasBody": false,
+    "workspace": true,
+    "acceptsApiKey": true,
+    "scope": "workspace:read"
   },
   {
     "operationId": "workspace.teams.list",
@@ -2855,35 +2955,10 @@ export const OPERATIONS: readonly Operation[] = [
       }
     ],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "workspace.teams:read"
-  },
-  {
-    "operationId": "workspace.usage",
-    "method": "get",
-    "path": "/workspace/usage",
-    "summary": "Get your plan's usage this period",
-    "cli": {
-      "command": "workspace usage",
-      "args": [],
-      "confirm": false
-    },
-    "mcp": {
-      "exposed": true,
-      "name": "workspace_usage",
-      "hints": {
-        "readOnlyHint": true,
-        "destructiveHint": false,
-        "idempotentHint": true
-      }
-    },
-    "description": "Returns what the workspace used this period, with one entry for each thing its plan counts. Each entry has the plan's limit, or null when there is no limit. Each entry also says where it stands and where we start refusing new use. A period is one month from the workspace's billing date. That date comes from its subscription or, without one, from the day you created the workspace. On an annual plan, the counts still reset every month from the subscription's start.",
-    "fields": [],
-    "hasBody": false,
-    "workspace": true,
-    "acceptsApiKey": true,
-    "scope": "workspace:read"
   },
   {
     "operationId": "workspace.webhookDeliveries.list",
@@ -2906,7 +2981,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Lists one endpoint's delivery history, newest first. Each entry shows the event's status, attempts and last HTTP status. Payloads aren't included. We keep the history for 30 days. Paginate with the opaque `nextCursor`. `before` starts from a moment, and `status` keeps one kind of delivery. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
+    "description": "Lists one endpoint's delivery history, newest first. Each entry shows the delivery's state, its attempts and the last HTTP status code. Payloads aren't included. We keep the history for 30 days. Paginate with the opaque `nextCursor`. `before` starts from a moment, and `status` keeps one kind of delivery. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -2914,7 +2989,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The endpoint's ID.",
-        "example": "we_3f0c…",
+        "example": "we_3f0c1a2e-4b5d-4c6e-8f70-1a2b3c4d5e6f",
         "schema": {
           "type": "string",
           "description": "The endpoint's ID."
@@ -2978,6 +3053,7 @@ export const OPERATIONS: readonly Operation[] = [
       }
     ],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "workspace.webhooks:read"
@@ -3004,7 +3080,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Sends a recorded delivery's event again, as a new delivery. The new delivery gets its own history entry. The event id stays the same, so receivers can deduplicate. Redelivery only works on an enabled endpoint. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
+    "description": "Sends a recorded delivery's event again, as a new delivery. The new delivery gets its own history entry. The event id stays the same, so receivers can deduplicate. Redelivery only works on an enabled endpoint. It answers 200 when we attempted the delivery right away, with the endpoint's answer, and 202 when it went to the queue. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -3012,7 +3088,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The endpoint's ID.",
-        "example": "we_3f0c…",
+        "example": "we_3f0c1a2e-4b5d-4c6e-8f70-1a2b3c4d5e6f",
         "schema": {
           "type": "string",
           "description": "The endpoint's ID."
@@ -3024,7 +3100,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The delivery's ID.",
-        "example": "del_8a1b…",
+        "example": "del_8a1b2c3d-4e5f-4a6b-9c7d-8e9f0a1b2c3d",
         "schema": {
           "type": "string",
           "description": "The delivery's ID."
@@ -3050,7 +3126,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Changes where workspace data is sent. A person configures webhook endpoints (Settings → Developers in the app)."
     },
-    "description": "Registers an HTTPS URL to receive the workspace's events. Deliveries use the same signature format as Svix. The response includes the endpoint's signing secret (`whsec_…`). You see it only once, so store it to verify deliveries. The API refuses private hosts and hosts without HTTPS. A workspace can have at most 10 endpoints. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
+    "description": "Registers an HTTPS URL to receive the workspace's events. Deliveries use the same signature format as Svix. The response is the new endpoint with its signing secret (`whsec_…`) in `secret`. You see it only once, so store it to verify deliveries. The API refuses private hosts and hosts without HTTPS. A workspace can have at most 10 endpoints. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "url",
@@ -3126,7 +3202,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The endpoint's ID.",
-        "example": "we_3f0c…",
+        "example": "we_3f0c1a2e-4b5d-4c6e-8f70-1a2b3c4d5e6f",
         "schema": {
           "type": "string",
           "description": "The endpoint's ID."
@@ -3162,7 +3238,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The endpoint's ID.",
-        "example": "we_3f0c…",
+        "example": "we_3f0c1a2e-4b5d-4c6e-8f70-1a2b3c4d5e6f",
         "schema": {
           "type": "string",
           "description": "The endpoint's ID."
@@ -3203,7 +3279,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The endpoint's ID.",
-        "example": "we_3f0c…",
+        "example": "we_3f0c1a2e-4b5d-4c6e-8f70-1a2b3c4d5e6f",
         "schema": {
           "type": "string",
           "description": "The endpoint's ID."
@@ -3237,6 +3313,7 @@ export const OPERATIONS: readonly Operation[] = [
     "description": "Lists the workspace's outgoing webhook endpoints, newest first. The list leaves out their signing secrets. A workspace has at most 10 endpoints, so the list is a single page. Its `nextCursor` is null. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [],
     "hasBody": false,
+    "paginated": true,
     "workspace": true,
     "acceptsApiKey": true,
     "scope": "workspace.webhooks:read"
@@ -3262,7 +3339,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Sends a `ping` event to the endpoint, signed like every delivery. Use it to check that an integration verifies and accepts deliveries. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
+    "description": "Sends a `ping` event to the endpoint, signed like every delivery. Use it to check that an integration verifies and accepts deliveries. It answers 200 when we attempted the delivery right away, with the endpoint's answer, and 202 when it went to the queue. With a personal access token, the workspace's owners and admins can call this, and members on the test side. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "endpointId",
@@ -3270,7 +3347,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The endpoint's ID.",
-        "example": "we_3f0c…",
+        "example": "we_3f0c1a2e-4b5d-4c6e-8f70-1a2b3c4d5e6f",
         "schema": {
           "type": "string",
           "description": "The endpoint's ID."
@@ -3306,7 +3383,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": true,
         "description": "The endpoint's ID.",
-        "example": "we_3f0c…",
+        "example": "we_3f0c1a2e-4b5d-4c6e-8f70-1a2b3c4d5e6f",
         "schema": {
           "type": "string",
           "description": "The endpoint's ID."
