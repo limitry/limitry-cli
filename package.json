@@ -1,6 +1,6 @@
 {
   "name": "@limitry/cli",
-  "version": "1.0.0-rc.20",
+  "version": "1.0.0-rc.21",
   "description": "Limitry command line",
   "keywords": [
     "usage-limits",
@@ -26,7 +26,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@limitry/sdk": "1.0.0-rc.19",
+    "@limitry/sdk": "1.0.0-rc.20",
     "@types/node": "26.6.6",
     "commander": "15.1.0",
     "esbuild": "0.28.2",

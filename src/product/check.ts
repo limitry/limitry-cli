@@ -44,7 +44,7 @@ export const checkCommand: Command = (program, ctx) => {
     .option("--json", "the decision as the API answers it")
     .addHelpText(
       "after",
-      `\nExample: ${brand.name} check user:user_123 ai-call --cost 5\nExit codes: 0 allowed, 5 refused, 2 wrong usage, 1 any other failure.`,
+      `\nExample: ${brand.name} check user:user_123 ai-call --cost 5\nExit codes: 0 allowed, 5 refused, 2 wrong usage, 4 not signed in, 1 any other failure.`,
     )
     .action(
       async (

@@ -279,7 +279,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Archives a limit, so checks stop enforcing it at once and it leaves the list. Archiving erases nothing. Limitry keeps the limit's usage history and credits, and `POST /v1/limits/{limitId}/restore` brings it back. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Archives a limit, so checks stop enforcing it at once and it leaves the list. Archiving erases nothing. Limitry keeps the limit's usage history and credits, and `POST /v1/limits/{limitId}/restore` brings it back. With a personal access token, the owner and admins can call this. Members can call it in test only, and guests can't. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "limitId",
@@ -318,7 +318,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Creates a limit on how much a subject may use per window, such as 200 cents a month for every `user`. You only need to send `subject.kind`, `amount` and `window`. `action` defaults to every action (`*`), `unit` to units, and `name` to the sentence the limit reads as. The next check enforces the new limit. You can't change a limit's subject, action, unit, window, every, start or rolling after you create it. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Creates a limit on how much a subject may use per window, such as 200 cents a month for every `user`. You only need to send `subject.kind`, `amount` and `window`. `action` defaults to every action (`*`), `unit` to units, and `name` to the sentence the limit reads as. The next check enforces the new limit. You can't change a limit's subject, action, unit, window, every, start or rolling after you create it. With a personal access token, the owner and admins can call this. Members can call it in test only, and guests can't. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "name",
@@ -522,7 +522,7 @@ export const OPERATIONS: readonly Operation[] = [
       "exposed": false,
       "reason": "Adding credits gives value away; an agent asks a person (limit.credit approval)"
     },
-    "description": "Adds `amount` credits to one subject's balance, on a limit whose window is `total`. A negative `amount` takes credits back, such as after a refund or a chargeback, and needs a `note` saying why. The balance can go below zero, and Limitry then refuses checks until you add more credits. Owners, admins and workspace API keys can add credits. An agent connected through MCP asks a person instead, through the `limit.credit` approval. Limitry keeps a credit's `Idempotency-Key` forever, so never reuse one for a new credit.",
+    "description": "Adds `amount` credits for one subject on a limit. On a balance, a limit whose window is `total`, the credits stay until they're spent. On a limit that resets, such as one with a `month` window, the credits top up the subject's current period and end when it resets. That period follows the subject's billing date when the limit starts there, and the answer's `periodEnd` says when it ends. A rolling or concurrent limit can't take credits. A negative `amount` takes credits back, such as after a refund or a chargeback, and needs a `note` saying why. The balance can go below zero, and Limitry then refuses checks until you add more credits. With a personal access token, the owner and admins can add credits. Members can add them in test only. A workspace API key with this scope can add them too. An agent connected through MCP asks a person instead, through the `limit.credit` approval. Limitry keeps a credit's `Idempotency-Key` forever, so never reuse one for a new credit.",
     "fields": [
       {
         "name": "limitId",
@@ -584,12 +584,12 @@ export const OPERATIONS: readonly Operation[] = [
         "in": "body",
         "type": "string",
         "required": false,
-        "description": "Why the balance changed. It's required when `amount` is negative.",
+        "description": "Why you added or took back credits. It's required when `amount` is negative.",
         "example": "October credits",
         "schema": {
           "type": "string",
           "maxLength": 200,
-          "description": "Why the balance changed. It's required when `amount` is negative."
+          "description": "Why you added or took back credits. It's required when `amount` is negative."
         }
       }
     ],
@@ -904,7 +904,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Brings an archived limit back. Checks enforce it again if it's enabled. The API refuses it while an active limit has the same name. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Brings an archived limit back. Checks enforce it again if it's enabled. The API refuses it while an active limit has the same name. With a personal access token, the owner and admins can call this. Members can call it in test only, and guests can't. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "limitId",
@@ -944,7 +944,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Makes the environment's limits match the list in `limits`, pairing them up by name. It creates the limits that are missing and changes the ones that differ, where an omitted field means its default. With `archiveMissing`, it also archives the active limits the list doesn't name. Running it twice changes nothing the second time. Limitry checks the whole list before writing anything. If any entry has a problem, nothing changes, and the 400 lists each problem in `details`. Otherwise Limitry writes every change at once. You can't change a limit's subject, action, unit, window, every, start or rolling under the same name, so rename the entry to do that. With `dryRun`, it returns what it would do without writing anything. What a sync sets is locked in the app until the next sync, which names its `source`. This is the call behind `limitry sync`, for keeping your limits in a file in your repository. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Makes the environment's limits match the list in `limits`, pairing them up by name. It creates the limits that are missing and changes the ones that differ, where an omitted field means its default. With `archiveMissing`, it also archives the active limits the list doesn't name. Running it twice changes nothing the second time. Limitry checks the whole list before writing anything. If any entry has a problem, nothing changes, and the 400 lists each problem in `details`. Otherwise Limitry writes every change at once. You can't change a limit's subject, action, unit, window, every, start or rolling under the same name, so rename the entry to do that. With `dryRun`, it returns what it would do without writing anything. What a sync sets is locked in the app until the next sync, which names its `source`. This is the call behind `limitry sync`, for keeping your limits in a file in your repository. With a personal access token, the owner and admins can call this. Members can call it in test only, and guests can't. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "limits",
@@ -1099,7 +1099,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Changes a limit's name, amount, fail mode or whether it's enabled. Checks use the new rule at once. You can't change a limit's subject, action, unit, window, every, start or rolling, and a request that tries gets a 400. To count something different, create a new limit and archive this one. A limit a sync sets (its `setIn`) changes only through the sync. A request to change one gets a 409 that names where the sync came from, unless it sends `override` with a reason. An override lasts until the next sync. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Changes a limit's name, amount, fail mode or whether it's enabled. Checks use the new rule at once. You can't change a limit's subject, action, unit, window, every, start or rolling, and a request that tries gets a 400. To count something different, create a new limit and archive this one. A limit a sync sets (its `setIn`) changes only through the sync. A request to change one gets a 409 that names where the sync came from, unless it sends `override` with a reason. An override lasts until the next sync. With a personal access token, the owner and admins can call this. Members can call it in test only, and guests can't. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "limitId",
@@ -1580,7 +1580,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Sets the name and labels of up to 1,000 subjects at once, such as when you first connect your user list. Each item works like updating that subject's name and labels: a field you leave out stays as it is, and null clears it. Limitry checks every item before it saves any, so a bad item saves nothing. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Sets the name and labels of up to 1,000 subjects at once, such as when you first connect your user list. Each item works like updating that subject's name and labels: a field you leave out stays as it is, and null clears it. Limitry checks every item before it saves any, so a bad item saves nothing. With a personal access token, the owner and admins can call this. Members can call it in test only, and guests can't. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "items",
@@ -1703,7 +1703,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": false,
         "description": "Only subjects of this kind.",
-        "example": "team",
+        "example": "user",
         "schema": {
           "type": "string",
           "minLength": 1,
@@ -1730,7 +1730,7 @@ export const OPERATIONS: readonly Operation[] = [
         "type": "string",
         "required": false,
         "description": "Only subjects whose name or ID contains this text, in any case.",
-        "example": "design",
+        "example": "sara",
         "schema": {
           "type": "string",
           "maxLength": 200,
@@ -1766,7 +1766,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Erases the name and labels you gave a subject. Its limits, usage and billing date stay, because they're kept by its ID. Use it when one of your users asks you to delete their data. Erasing a subject with no name or labels succeeds too. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Erases the name and labels you gave a subject. Its limits, usage and billing date stay, because they're kept by its ID. Use it when one of your users asks you to delete their data. Erasing a subject with no name or labels succeeds too. With a personal access token, the owner and admins can call this. Members can call it in test only, and guests can't. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "subjectKind",
@@ -1824,7 +1824,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Resets one limit on a subject now, or every limit on it. Send `limitId` for one limit, or `{}` for all of them. Use it for goodwill, a promotion or support. The schedule doesn't move, so the next reset still happens when it normally would. A balance goes back to its amount, and the reset skips concurrent limits. With an Idempotency-Key, a repeated request resets only once. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Resets one limit on a subject now, or every limit on it. Send `limitId` for one limit, or `{}` for all of them. Use it for goodwill, a promotion or support. The schedule doesn't move, so the next reset still happens when it normally would. A balance goes back to its amount, and the reset skips concurrent limits. With an Idempotency-Key, a repeated request resets only once. With a personal access token, the owner and admins can call this. Members can call it in test only, and guests can't. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "subjectKind",
@@ -1965,7 +1965,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": false
       }
     },
-    "description": "Sets a subject's billing date, its name, its labels, or any of them. A field you leave out stays as it is, and null clears a name or labels. Labels you send replace the subject's labels. The billing date is the moment the subject's `billing_date` limits count their periods from, usually the subscription's start, set from your billing system's webhook. The subject's allowance then resets on its own billing day, and a monthly limit still resets monthly on an annual plan. A name and labels are optional, and checks never need them. With a personal access token, only owners and admins can call this. A workspace API key with this scope can.",
+    "description": "Sets a subject's billing date, its name, its labels, or any of them. A field you leave out stays as it is, and null clears a name or labels. Labels you send replace the subject's labels. The billing date is the moment the subject's `billing_date` limits count their periods from, usually the subscription's start, set from your billing system's webhook. The subject's allowance then resets on its own billing day, and a monthly limit still resets monthly on an annual plan. A name and labels are optional, and checks never need them. With a personal access token, the owner and admins can call this. Members can call it in test only, and guests can't. A workspace API key with this scope can.",
     "fields": [
       {
         "name": "subjectKind",
@@ -2071,7 +2071,7 @@ export const OPERATIONS: readonly Operation[] = [
         "idempotentHint": true
       }
     },
-    "description": "Returns every active limit's usage in one answer, for a question that names no limit. Each limit comes with its name, unit, amount and window, its `total` (units used, checks allowed and refused) and its top subjects. By default, it covers each limit's current window, with exact amounts. For a past range, send `period`, such as `last_month`, or `from` and `to`. The totals and subjects then come from history, and each subject's `remaining` is null. Set `sort` to `refused` to list only the subjects each limit refused, the most refused first. A balance also lists the credits added to it in the range. The current window is whole on every plan. A past range reaches no further back than your plan's history.",
+    "description": "Returns every active limit's usage in one answer, for a question that names no limit. Each limit comes with its name, unit, amount and window, its `total` (units used, checks allowed and refused) and its top subjects. By default, it covers each limit's current window, with exact amounts. For a past range, send `period`, such as `last_month`, or `from` and `to`. The totals and subjects then come from history, and each subject's `remaining` is null. Set `sort` to `refused` to list only the subjects each limit refused, the most refused first. A balance lists the credits added to it, and a limit that resets lists its top-ups. The current window is whole on every plan. A past range reaches no further back than your plan's history.",
     "fields": [
       {
         "name": "period",
